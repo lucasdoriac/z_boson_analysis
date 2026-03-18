@@ -59,16 +59,17 @@ void invMassSpectrum(){
 		return;
 	}
 	//dimuonTree->Print(); // Prints content of TTree.
-	//dimuonTree->Show(2); // Prints content of n-th event.
-	//Long64_t nEvents = dimuonTree->GetEntries(); 
+	//dimuonTree->Show(26); // Prints content of n-th event.
+	Long64_t nEvents = dimuonTree->GetEntries(); 
 	
 	//TH1D *h_invMass = new TH1D("h_invMass","Dimuon invariant mass", 40, 70, 110);
 	//h_invMass->SetDirectory(0);
-	TH2D *h_pt_muPlus_vs_muMinus = new TH2D("h_pt_muPlus_vs_muMinus", "p_{T}(#mu^{+}) vs p_{T}(#mu^{-})", 100, 0, 200);
-	h_pt_muPlus_vs_muMinus->SetDirectory(0);
+	//TH2D *h_pt_muPlus_vs_muMinus = new TH2D("h_pt_muPlus_vs_muMinus", "p_{T}(#mu^{+}) vs p_{T}(#mu^{-})", 100, 0, 200);
+	//h_pt_muPlus_vs_muMinus->SetDirectory(0);
 
-	unsigned int Reco_QQ_mupl_idx = 0;
-	unsigned int Reco_QQ_mumi_idx = 0;
+	Short_t Reco_QQ_size;
+	dimuonTree->SetBranchAddress("Reco_QQ_size", &Reco_QQ_size);
+
 	std::vector<float>* Reco_mu_4mom_pt  = nullptr;
 	std::vector<float>* Reco_mu_4mom_eta = nullptr;	
 	std::vector<float>* Reco_mu_4mom_m = nullptr;	
@@ -76,11 +77,9 @@ void invMassSpectrum(){
 	std::vector<float>* Reco_QQ_4mom_eta  = nullptr;
 	std::vector<float>* Reco_QQ_4mom_m = nullptr;
 	
-	dimuonTree->SetBranchAddress("Reco_mu_charge", Reco_mu_charge);
 	dimuonTree->SetBranchAddress("Reco_mu_4mom_pt", &Reco_mu_4mom_pt);
+	dimuonTree->SetBranchAddress("Reco_mu_4mom_eta", &Reco_mu_4mom_pt);
 	dimuonTree->SetBranchAddress("Reco_mu_4mom_m", &Reco_mu_4mom_m);
-	dimuonTree->SetBranchAddress("Reco_QQ_mupl_idx", &Reco_QQ_mupl_idx);
-	dimuonTree->SetBranchAddress("Reco_QQ_mumi_idx", &Reco_QQ_mumi_idx);
 	dimuonTree->SetBranchAddress("Reco_QQ_4mom_pt", &Reco_QQ_4mom_pt);
 	dimuonTree->SetBranchAddress("Reco_QQ_4mom_eta", &Reco_QQ_4mom_eta);
 	dimuonTree->SetBranchAddress("Reco_QQ_4mom_m", &Reco_QQ_4mom_m);
@@ -89,20 +88,13 @@ void invMassSpectrum(){
 		
 		dimuonTree->GetEntry(i);
 		
-		if(Reco_QQ_4mom_m->size() > 0){//If event has dimuon candidate... at least 2 independent muons.
+		if(Reco_QQ_size > 0){//If event has dimuon candidate... at least 2 independent muons.
+			
+			// The corresponding muon pair is indexed with idx variables.
 
-			for(j = 0; j < Reco_QQ_4mom_m->size(); ++j){
-
-			}
-			Reco_QQ_mupl_idx //Which muon pair...
-			Reco_QQ_mumi_idx
-			unsigned int Reco_mu_charge[Reco_mu_size] =;
-			pt_muPlus = Reco_mu_4mom_pt->at(0);
-			pt_muMinus = Reco_mu_4mom_pt->at(1);
-
-			if(pt_muPlus < 200. && pt_muMinus 200.) h_pt_muPlus_vs_muMinus->Fill(pt_muPlus, pt_muMinus);
+			//std::cout << "event " << i << "has a dimuon candidate." << std::endl;
+			//std::cout << Reco_QQ_4mom_m->size() << std::endl;
 		}
-
 	}
 
 	// Select minMass and maxMass bins.
