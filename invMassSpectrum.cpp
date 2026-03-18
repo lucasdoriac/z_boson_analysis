@@ -11,8 +11,10 @@
 #include <string>
 #include <vector>
 
-
-TString plot_extension = ".pdf";
+double minMass = 80.0;
+double maxMass = 100.0;
+double delta = 1e-5;
+TString plot_extension = ".png";
 TString output_name = "out";
 TString base_output_path = "./";
 
@@ -57,52 +59,59 @@ void invMassSpectrum(){
 		return;
 	}
 	//dimuonTree->Print(); // Prints content of TTree.
-	//dimuonTree->Show(0); // Prints content of n-th event.
-	Long64_t nEvents = dimuonTree->GetEntries(); 
-	//std::cout << "Total number of events on the TTree -> " << nEvents << std::endl;// Prints the number of total events on the TTree.
-
-	TH1D *h_invMass = new TH1D("h_invMass","Dimuon invariant mass", 20, 80, 100);
-	h_invMass->SetDirectory(0);
+	//dimuonTree->Show(2); // Prints content of n-th event.
+	//Long64_t nEvents = dimuonTree->GetEntries(); 
 	
+	//TH1D *h_invMass = new TH1D("h_invMass","Dimuon invariant mass", 40, 70, 110);
+	//h_invMass->SetDirectory(0);
+	TH2D *h_pt_muPlus_vs_muMinus = new TH2D("h_pt_muPlus_vs_muMinus", "p_{T}(#mu^{+}) vs p_{T}(#mu^{-})", 100, 0, 200);
+	h_pt_muPlus_vs_muMinus->SetDirectory(0);
+
+	unsigned int Reco_QQ_mupl_idx = 0;
+	unsigned int Reco_QQ_mumi_idx = 0;
+	std::vector<float>* Reco_mu_4mom_pt  = nullptr;
+	std::vector<float>* Reco_mu_4mom_eta = nullptr;	
+	std::vector<float>* Reco_mu_4mom_m = nullptr;	
 	std::vector<float>* Reco_QQ_4mom_pt  = nullptr;
-	std::vector<float>* Reco_QQ_4mom_eta = nullptr;
-	std::vector<float>* Reco_QQ_4mom_phi = nullptr;
+	std::vector<float>* Reco_QQ_4mom_eta  = nullptr;
 	std::vector<float>* Reco_QQ_4mom_m = nullptr;
-	dimuonTree->SetBranchAddress("Reco_QQ_4mom_pt",  &Reco_QQ_4mom_pt);
+	
+	dimuonTree->SetBranchAddress("Reco_mu_charge", Reco_mu_charge);
+	dimuonTree->SetBranchAddress("Reco_mu_4mom_pt", &Reco_mu_4mom_pt);
+	dimuonTree->SetBranchAddress("Reco_mu_4mom_m", &Reco_mu_4mom_m);
+	dimuonTree->SetBranchAddress("Reco_QQ_mupl_idx", &Reco_QQ_mupl_idx);
+	dimuonTree->SetBranchAddress("Reco_QQ_mumi_idx", &Reco_QQ_mumi_idx);
+	dimuonTree->SetBranchAddress("Reco_QQ_4mom_pt", &Reco_QQ_4mom_pt);
 	dimuonTree->SetBranchAddress("Reco_QQ_4mom_eta", &Reco_QQ_4mom_eta);
-	dimuonTree->SetBranchAddress("Reco_QQ_4mom_phi", &Reco_QQ_4mom_phi);
 	dimuonTree->SetBranchAddress("Reco_QQ_4mom_m", &Reco_QQ_4mom_m);
 
-	for(Long64_t i = 0; i < nEvents; ++i){
-
+	for(Long64_t i = 0; i < nEvents; ++i){// Loop over events...
+		
 		dimuonTree->GetEntry(i);
-		if (Reco_QQ_4mom_m){		
-			
-			for (size_t j = 0; j < Reco_QQ_4mom_m->size(); ++j){ //If the event has a dimuon candidate, runs the loop, if not, go to next event.
-				double mass = Reco_QQ_4mom_m->at(j);
-				h_invMass->Fill(mass);
+		
+		if(Reco_QQ_4mom_m->size() > 0){//If event has dimuon candidate... at least 2 independent muons.
+
+			for(j = 0; j < Reco_QQ_4mom_m->size(); ++j){
+
 			}
+			Reco_QQ_mupl_idx //Which muon pair...
+			Reco_QQ_mumi_idx
+			unsigned int Reco_mu_charge[Reco_mu_size] =;
+			pt_muPlus = Reco_mu_4mom_pt->at(0);
+			pt_muMinus = Reco_mu_4mom_pt->at(1);
+
+			if(pt_muPlus < 200. && pt_muMinus 200.) h_pt_muPlus_vs_muMinus->Fill(pt_muPlus, pt_muMinus);
 		}
-	
+
 	}
 
-	/*
-	int bin_min = FindBin(80);
-	int bin_max = FindBin(110);
-	double z_yield_err = 0;
-	double z_yield = IntegralAndError(bin_min, bin_max, z_yield_err);
-	// Calculate mean of mass distribution.
-
-	// Calculate standard deviation.
-	*/
-
-	double delta = 1e-5;
-	int bin_min = h_invMass->FindBin(80 + delta);
-	int bin_max = h_invMass->FindBin(100 - delta);
+	// Select minMass and maxMass bins.
+	/*int minMass_bin = h_invMass->FindBin(minMass + delta);
+	int maxMass_bin = h_invMass->FindBin(maxMass - delta);
 
 	// Calculate Z yield.
 	double z_yield_err = 0;
-	double z_yield = h_invMass->IntegralAndError(bin_min, bin_max, z_yield_err);
+	double z_yield = h_invMass->IntegralAndError(minMass_bin, maxMass_bin, z_yield_err);
 
 	TCanvas *c = new TCanvas("c","Invariant Mass",700,600);
     c->SetLeftMargin(0.12);
@@ -115,29 +124,30 @@ void invMassSpectrum(){
     c->SetFrameFillColor(0);
     c->SetFrameLineWidth(1);
 
-    h_invMass->GetXaxis()->CenterTitle(true);
+    //h_invMass->GetXaxis()->CenterTitle(true);
     h_invMass->GetYaxis()->CenterTitle(true);
     h_invMass->GetXaxis()->SetTitleOffset(1.);
-    h_invMass->GetYaxis()->SetTitleOffset(1.);
+    h_invMass->GetYaxis()->SetTitleOffset(1.1);
     h_invMass->GetXaxis()->SetTitleFont(42);
     h_invMass->GetYaxis()->SetTitleFont(42);
     h_invMass->GetXaxis()->SetLabelFont(42);
     h_invMass->GetYaxis()->SetLabelFont(42);
     h_invMass->GetXaxis()->SetTitleSize(0.05);
     h_invMass->GetYaxis()->SetTitleSize(0.044);
-    h_invMass->GetXaxis()->SetLabelSize(0.036);
-    h_invMass->GetYaxis()->SetLabelSize(0.036);
+    h_invMass->GetXaxis()->SetLabelSize(0.038);
+    h_invMass->GetYaxis()->SetLabelSize(0.038);
 
     h_invMass->SetTitle("");
     h_invMass->GetXaxis()->SetTitle("m_{#mu^{+}#mu^{-}} [GeV/c^{2}]");
     h_invMass->GetYaxis()->SetTitle("Number of Events");
+	h_invMass->GetYaxis()->SetMaxDigits(3);
 
 	h_invMass->SetMarkerStyle(20);
 	h_invMass->SetMarkerSize(0.9);
 	h_invMass->SetStats(0);
 	h_invMass->Draw("E");
 
-	/*TLegend *leg = new TLegend(0.60,0.68,0.81,0.85);
+	TLegend *leg = new TLegend(0.60,0.68,0.81,0.85);
 	leg->AddEntry(h_invMass,"dimuon mass","lep");
 	leg->AddEntry()	
     leg->SetBorderSize(0);
@@ -146,7 +156,7 @@ void invMassSpectrum(){
     leg->SetTextFont(42);
     leg->SetMargin(0.2);
     leg->SetEntrySeparation(0.04);
-    leg->Draw();*/
+    leg->Draw();
 
 	TLatex latex;
 	latex.SetNDC(); // For normalized coordinates.
@@ -168,12 +178,20 @@ void invMassSpectrum(){
 	latex.SetNDC(); // For normalized coordinates.
 	latex.SetTextSize(0.04);
 	latex.SetTextFont(42);
-	latex.SetTextAlign(11); // left-top aligned.
-
+	latex.SetTextAlign(11);
 	latex.DrawLatex(0.2, 0.8, Form("Z yield = %d #pm %d", TMath::Nint(z_yield), TMath::Nint(z_yield_err)));
 
+	TLatex latex4;
+	latex4.SetNDC(); // For normalized coordinates.
+	latex4.SetTextSize(0.04);
+	latex4.SetTextFont(42);
+	latex4.SetTextAlign(11);
+	latex4.DrawLatex(0.2, 0.75, Form("%d < m_{#mu^{+}#mu^{-}} < %d", TMath::Nint(minMass), TMath::Nint(maxMass)));
+
+	h_invMass->Scale(1e-3);
+    h_invMass->GetYaxis()->SetTitle("Number of Events #times 10^{3}");
 	c->Update();
-    c->SaveAs("./output.pdf");
+    c->SaveAs("./output.png");*/
 
 	rootFile->Close();
 }
