@@ -70,10 +70,6 @@ void make_hist_pt_plmi(){
 	Short_t Reco_QQ_size;
 	dimuonTree->SetBranchAddress("Reco_QQ_size", &Reco_QQ_size);
 
-	Short_t Reco_mu_size;
-	dimuonTree->SetBranchAddress("Reco_mu_size", &Reco_mu_size);
-
-	const int MAX_MU = 100;
 	const int MAX_QQ = 10;
 
 	Short_t Reco_QQ_mupl_idx[MAX_QQ];
@@ -81,9 +77,6 @@ void make_hist_pt_plmi(){
 
 	dimuonTree->SetBranchAddress("Reco_QQ_mupl_idx", Reco_QQ_mupl_idx);
 	dimuonTree->SetBranchAddress("Reco_QQ_mumi_idx", Reco_QQ_mumi_idx);
-
-	Short_t Reco_mu_charge[MAX_MU];
-	dimuonTree->SetBranchAddress("Reco_mu_charge", Reco_mu_charge);
 
 	std::vector<float>* Reco_mu_4mom_pt  = nullptr;
 	std::vector<float>* Reco_mu_4mom_m = nullptr;	
