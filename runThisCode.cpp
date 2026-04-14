@@ -77,7 +77,7 @@ void runThisCode(){
 
 	//printTreeContents(PbPb_5TeV_2024.path);
 	invMassSpectrum(PbPb_5TeV_2024.path);
-	pt_spectrum_muPLmuMI(PbPb_5TeV_2024.path);
+	//pt_spectrum_muPLmuMI(PbPb_5TeV_2024.path);
 }
 
 void pt_spectrum_muPLmuMI(const std::string& PathToROOTFile){
@@ -108,6 +108,8 @@ void pt_spectrum_muPLmuMI(const std::string& PathToROOTFile){
 	const int MAX_MU = 1000;
 	Short_t Reco_mu_charge[MAX_MU];
 	dimuonTree->SetBranchAddress("Reco_mu_charge", Reco_mu_charge);
+	bool Reco_mu_isTightCutBased[MAX_MU];
+	dimuonTree->SetBranchAddress("Reco_mu_isTightCutBased", Reco_mu_isTightCutBased);
 
 	std::vector<float>* Reco_mu_4mom_pt = nullptr;
 	std::vector<float>* Reco_mu_4mom_eta = nullptr;
@@ -146,7 +148,7 @@ void pt_spectrum_muPLmuMI(const std::string& PathToROOTFile){
 
 		dimuonTree->GetEntry(i);//Get BRANCH values at the i-th event.
 		bool goodVertex = (std::abs(zVtx) < 15.0);
-		bool goodCent = (Centrality >= 60 && Centrality <= 140); //30 to 70%.
+		bool goodCent = (Centrality > 60 && Centrality <= 180);
 
 		if(goodVertex && goodCent){//Good event selection.
 
@@ -160,8 +162,8 @@ void pt_spectrum_muPLmuMI(const std::string& PathToROOTFile){
 						etaminus = Reco_mu_4mom_eta->at(Reco_QQ_mumi_idx[j]);
 
 						//Good muon selection
-						bool goodMuonPlus = (ptplus >= 20.0) && (std::abs(etaplus) < 2.4);
-						bool goodMuonMinus = (ptminus >= 20.0) && (std::abs(etaminus) < 2.4);
+						bool goodMuonPlus = (ptplus >= 20.0) && (std::abs(etaplus) < 2.4) && (Reco_mu_isTightCutBased[Reco_QQ_mupl_idx[j]]);
+						bool goodMuonMinus = (ptminus >= 20.0) && (std::abs(etaminus) < 2.4) && (Reco_mu_isTightCutBased[Reco_QQ_mupl_idx[j]]);
 
 						if(goodMuonPlus && goodMuonMinus){
 							hist_ptpl->Fill(ptplus);
@@ -221,16 +223,17 @@ void pt_spectrum_muPLmuMI(const std::string& PathToROOTFile){
 	//hist_ptpl->GetYaxis()->SetTitle("Number of events");
 	hist_ptpl->SetLineColor(kRed + 1);
 	hist_ptpl->SetLineWidth(2);
-	hist_ptpl->SetFillStyle(3004);
-	hist_ptpl->SetFillColorAlpha(kRed + 1, 0.35);
+	//hist_ptpl->SetFillStyle(3004);
+	//hist_ptpl->SetFillColorAlpha(kRed + 1, 0.35);
 	hist_ptmi->SetLineColor(kBlue + 1);
 	hist_ptmi->SetLineWidth(2);
-	hist_ptmi->SetFillStyle(3005);
-	hist_ptmi->SetFillColorAlpha(kBlue + 1, 0.35);
+	//hist_ptmi->SetFillStyle(3005);
+	//hist_ptmi->SetFillColorAlpha(kBlue + 1, 0.35);
     hist_ptpl->GetXaxis()->SetTitle("p_{T} [GeV]");
 	hist_ptpl->GetYaxis()->SetTitle("Number of Z^{0} candidates [GeV^{-1}]");
 	//Zooming in for display only.
 	hist_ptpl->GetXaxis()->SetRangeUser(10, 100);
+	hist_ptpl->GetYaxis()->SetRangeUser(0, hist_ptpl->GetMaximum() + 60);
 	hist_ptpl->Draw("HIST");
 	hist_ptmi->Draw("HIST SAME");
 
@@ -244,7 +247,7 @@ void pt_spectrum_muPLmuMI(const std::string& PathToROOTFile){
 	//drawLatexText(Form("m_{#mu^{+}#mu^{-}} = (%.2f #pm %.2f) GeV", mean, mean_err), 0.18, 0.72, 0.04);
 	//drawLatexText(Form("#sigma_{m_{#mu^{+}#mu^{-}}} = (%.2f #pm %.2f) GeV", std_dev, std_dev_err), 0.18, 0.64, 0.04);
 	//drawLatexText(Form("%d < m_{#mu^{+}#mu^{-}} < %d GeV", TMath::Nint(minDimuonMass), TMath::Nint(maxDimuonMass)), 0.62, 0.45, 0.042);
-	drawLatexText("Cent. 30-70%", 0.65, 0.35, 0.044);
+	drawLatexText("Cent. 30-90%", 0.65, 0.35, 0.044);
 	//drawLatexText(Form("|#eta| < %.1f", eta_HighLimit), 0.23, 0.33, 0.04);
 
 	TLegend* leg = new TLegend(0.5, 0.60, 0.72, 0.85);
@@ -293,6 +296,8 @@ void invMassSpectrum(const std::string& PathToROOTFile, int nBins, int minMass, 
 	const int MAX_MU = 1000;
 	Short_t Reco_mu_charge[MAX_MU];
 	dimuonTree->SetBranchAddress("Reco_mu_charge", Reco_mu_charge);
+	bool Reco_mu_isTightCutBased[MAX_MU];
+	dimuonTree->SetBranchAddress("Reco_mu_isTightCutBased", Reco_mu_isTightCutBased);
 
 	std::vector<float>* Reco_mu_4mom_pt = nullptr;
 	std::vector<float>* Reco_mu_4mom_eta = nullptr;
@@ -330,11 +335,11 @@ void invMassSpectrum(const std::string& PathToROOTFile, int nBins, int minMass, 
 
 		dimuonTree->GetEntry(i);//Get BRANCH values at the i-th event.
 		bool goodVertex = (std::abs(zVtx) < 15.0);
-		bool goodCent = (Centrality >= 60 && Centrality <= 140); //30 to 70%.
+		bool goodCent = (Centrality > 60 && Centrality <= 140);
 
 		if(goodVertex && goodCent){//Good event selection.
 
-			for (Short_t j = 0; j < Reco_QQ_size; ++j){//If event has dimuon candidate, flagged by Reco_QQ_size > 0...
+			for(Short_t j = 0; j < Reco_QQ_size; ++j){//If event has dimuon candidate, flagged by Reco_QQ_size > 0... j = N of dimuons on the i event.
 
 				if(Reco_QQ_4mom_m->at(j) >= 80.0 && Reco_QQ_4mom_m->at(j) <= 100.0){//Z mass window
 					
@@ -344,8 +349,8 @@ void invMassSpectrum(const std::string& PathToROOTFile, int nBins, int minMass, 
 						etaminus = Reco_mu_4mom_eta->at(Reco_QQ_mumi_idx[j]);
 
 						//Good muon selection
-						bool goodMuonPlus = (ptplus >= 20.0) && (std::abs(etaplus) < 2.4);
-						bool goodMuonMinus = (ptminus >= 20.0) && (std::abs(etaminus) < 2.4);
+						bool goodMuonPlus = (ptplus >= 20.0) && (std::abs(etaplus) < 2.4) && (Reco_mu_isTightCutBased[Reco_QQ_mupl_idx[j]]);
+						bool goodMuonMinus = (ptminus >= 20.0) && (std::abs(etaminus) < 2.4) && (Reco_mu_isTightCutBased[Reco_QQ_mupl_idx[j]]);
 
 						if(goodMuonPlus && goodMuonMinus){
 							h_invMass->Fill(Reco_QQ_4mom_m->at(j));

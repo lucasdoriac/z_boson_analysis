@@ -113,6 +113,8 @@ void pt_asymmetry(const std::string& PathToROOTFile){
 	const int MAX_MU = 1000;
 	Short_t Reco_mu_charge[MAX_MU];
 	dimuonTree->SetBranchAddress("Reco_mu_charge", Reco_mu_charge);
+	bool Reco_mu_isTightCutBased[MAX_MU];
+	dimuonTree->SetBranchAddress("Reco_mu_isTightCutBased", Reco_mu_isTightCutBased);
 
 	std::vector<float>* Reco_mu_4mom_pt = nullptr;
 	std::vector<float>* Reco_mu_4mom_eta = nullptr;
@@ -149,7 +151,7 @@ void pt_asymmetry(const std::string& PathToROOTFile){
 
 		dimuonTree->GetEntry(i);//Get BRANCH values at the i-th event.
 		bool goodVertex = (std::abs(zVtx) < 15.0);
-		bool goodCent = (Centrality >= 60 && Centrality <= 140); //30 to 70%.
+		bool goodCent = (Centrality > 20 && Centrality <= 60); //30 to 70%.
 
 		if(goodVertex && goodCent){//Good event selection.
 
@@ -163,8 +165,8 @@ void pt_asymmetry(const std::string& PathToROOTFile){
 						etaminus = Reco_mu_4mom_eta->at(Reco_QQ_mumi_idx[j]);
 
 						//Good muon selection
-						bool goodMuonPlus = (ptplus >= 20.0) && (std::abs(etaplus) < 2.4);
-						bool goodMuonMinus = (ptminus >= 20.0) && (std::abs(etaminus) < 2.4);
+						bool goodMuonPlus = (ptplus >= 20.0) && (std::abs(etaplus) < 2.4) && (Reco_mu_isTightCutBased[Reco_QQ_mupl_idx[j]]);
+						bool goodMuonMinus = (ptminus >= 20.0) && (std::abs(etaminus) < 2.4) && (Reco_mu_isTightCutBased[Reco_QQ_mupl_idx[j]]);
 
 						if(goodMuonPlus && goodMuonMinus){
 							pt_asym = (ptplus - ptminus)/(ptplus + ptminus);
@@ -190,8 +192,7 @@ void pt_asymmetry(const std::string& PathToROOTFile){
 	h_asym->SetLineWidth(1);
 	h_asym->SetFillStyle(3001);
 	h_asym->SetFillColorAlpha(kAzure, 0.35); //less bright. more control.
-	h_asym->SetStats(1);
-    
+
     h_asym->GetXaxis()->SetTitleSize(0.04);
     h_asym->GetXaxis()->SetTitleOffset(1.1);
 	h_asym->Draw("HIST");
@@ -206,6 +207,10 @@ void pt_asymmetry(const std::string& PathToROOTFile){
 	drawLatexText();
 	drawLatexText("#it{Internal}", 0.25, 0.93, 0.042);
 	drawLatexText("PbPb 2024 (5.36 TeV)", 0.65, 0.93, 0.042);
+	mean = mean * 1e3;
+	mean_err = mean_err * 1e3;
+	drawLatexText(Form("Mean = (%.2f #pm %.2f) #times 10^{3} GeV", mean, mean_err), 0.16, 0.8, 0.036);
+	drawLatexText("Cent. 10-30%", 0.2, 0.3, 0.044);
 
 	TString output = TString(__func__) + plot_extension;
 
