@@ -92,14 +92,12 @@ void muon_charge();
 //---function to reconstruct (calculate) inv mass spectrum from mu variables and compare with Reco_QQ_4mom_m.
 void mu_inv_mass();
 void mu_inv_mass_WithSelection();
-void check_triggerBranch();
 
 //---main
 void monte_carlo_analysis(){
 
 	//Part 4:
 	//mu_inv_mass_WithSelection();
-	//check_triggerBranch();
 	//muon_charge();
 
 	//Part 3:
@@ -117,7 +115,7 @@ void monte_carlo_analysis(){
 	//dimuon_phi();
 	//dimuon_pseudorap();
 	//dimuon_pt();
-	dimuon_rapidity();
+	//dimuon_rapidity();
 	//test_chain();
 
 }

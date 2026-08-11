@@ -41,7 +41,7 @@ struct dataFile {
 };
 
 const dataFile PbPb_5TeV_2024 = {
-    "../data/Oniatree_PbPb2024_PromptReco.root",
+    "Oniatree_PbPb2024_PromptReco.root",
     "Oniatree_PbPb2024_PromptReco.root",
     "PbPb_5TeV_2024",
 };
@@ -60,6 +60,7 @@ const dataFile MC_PbPb_5TeV = {
 }
 */
 
+
 // --- ready-to-go functions
 void pt_asymmetry();
 void pt_spectrum_muPLmuMI(const std::string& PathToROOTFile = "Oniatree_PbPb2024_PromptReco.root");
@@ -76,11 +77,13 @@ void runThisCode(){
 	gROOT->SetBatch(kTRUE);
 
 	//printTreeContents(PbPb_5TeV_2024.path);
-	invMassSpectrum(PbPb_5TeV_2024.path);
-	//pt_spectrum_muPLmuMI(PbPb_5TeV_2024.path);
+	
+	//invMassSpectrum(PbPb_5TeV_2024.path);
+	pt_spectrum_muPLmuMI(PbPb_5TeV_2024.path);
 }
 
 void pt_spectrum_muPLmuMI(const std::string& PathToROOTFile){
+
 	// Load root file.
 	TFile *rootFile = TFile::Open(PathToROOTFile.c_str(), "READ");
     rootFile->ls();
@@ -101,13 +104,14 @@ void pt_spectrum_muPLmuMI(const std::string& PathToROOTFile){
 	int Centrality;
 	dimuonTree->SetBranchAddress("Centrality", &Centrality);
 
-	//Reco muon quantities
+	//Muon-level quantities
 	Short_t Reco_mu_size;
 	dimuonTree->SetBranchAddress("Reco_mu_size", &Reco_mu_size);
 
 	const int MAX_MU = 1000;
 	Short_t Reco_mu_charge[MAX_MU];
 	dimuonTree->SetBranchAddress("Reco_mu_charge", Reco_mu_charge);
+
 	bool Reco_mu_isTightCutBased[MAX_MU];
 	dimuonTree->SetBranchAddress("Reco_mu_isTightCutBased", Reco_mu_isTightCutBased);
 
@@ -120,7 +124,7 @@ void pt_spectrum_muPLmuMI(const std::string& PathToROOTFile){
 	dimuonTree->SetBranchAddress("Reco_mu_4mom_phi", &Reco_mu_4mom_phi);
 	dimuonTree->SetBranchAddress("Reco_mu_4mom_m", &Reco_mu_4mom_m);
 
-	//Reco Z candidates quantities
+	//Z candidates quantities
 	Short_t Reco_QQ_size;
 	dimuonTree->SetBranchAddress("Reco_QQ_size", &Reco_QQ_size);
 
@@ -147,6 +151,7 @@ void pt_spectrum_muPLmuMI(const std::string& PathToROOTFile){
 	for(Long64_t i = 0; i < nEvents; ++i){//Loop events. "event-by-event"...
 
 		dimuonTree->GetEntry(i);//Get BRANCH values at the i-th event.
+
 		bool goodVertex = (std::abs(zVtx) < 15.0);
 		bool goodCent = (Centrality > 60 && Centrality <= 180);
 
