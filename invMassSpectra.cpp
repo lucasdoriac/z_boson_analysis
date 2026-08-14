@@ -4,8 +4,6 @@ Apply each selection individually until all selections are applied.
 Keep track of Z yield at every applied basic selection.
 
 For example: goodCent -> Plot invMassSpectrum & Z yield = N -> goodCent + goodVertex -> Plot invMassSpectrum & Z yield = N-a.
-
-13/08 - Começando macro.
 */
 
 //---Libraries
@@ -76,7 +74,7 @@ Dataset datasets[] = {
         CollisionSystem::PbPb2024,
         "hionia/DimuonTree",
         "HighPtMuons_HLTL2SingleMu_PbPb2024Data.root",
-        "/home/lucas/Documents/Analysis/Data/PbPb2024/"
+        "/home/lucasdoriac/z_boson_analysis/Data/PbPb2024/"
     },
 
     {
@@ -127,84 +125,10 @@ void invMassSpectra(){
 
 	gROOT->SetBatch(kTRUE);
 
-    //Make_invMassSpectrum(datasets[1]);
+    Make_invMassSpectrum(datasets[1]);
 }
 
 //---Observables
-
-
-//---Histogram formatting
-
-void basicCanvasFormatting(TCanvas* c){
-    c->SetLeftMargin(0.12);
-    c->SetRightMargin(0.035);
-    c->SetBottomMargin(0.12);
-    c->SetTopMargin(0.08);
-    c->SetTickx(1);
-    c->SetTicky(1);
-    c->SetFillColor(0);
-    c->SetFrameFillColor(0);
-    c->SetFrameLineWidth(2);
-}
-
-void basicHistFormatting(TH1D* hist){
-	hist->GetXaxis()->CenterTitle(false);
-    hist->GetYaxis()->CenterTitle(false);
-    hist->GetXaxis()->SetTitleOffset(.9);
-    hist->GetYaxis()->SetTitleOffset(1.);
-    hist->GetXaxis()->SetTitleFont(42);
-    hist->GetYaxis()->SetTitleFont(42);
-    hist->GetXaxis()->SetLabelFont(42);
-    hist->GetYaxis()->SetLabelFont(42);
-    hist->GetXaxis()->SetTitleSize(0.055);
-    hist->GetYaxis()->SetTitleSize(0.055);
-    hist->GetXaxis()->SetLabelSize(0.042);
-    hist->GetYaxis()->SetLabelSize(0.042);
-    hist->SetTitle("");
-	hist->SetStats(0);
-	hist->SetMarkerStyle(20);
-	//hist->SetMarkerSize(0.9);
-}
-
-void basicLegendFormatting(TLegend *leg){
-    leg->SetBorderSize(0);
-    leg->SetFillStyle(0);
-    leg->SetTextSize(0.042);
-    leg->SetTextFont(42);
-    leg->SetMargin(0.2);
-    leg->SetEntrySeparation(0.04);
-}
-
-void drawLatexText(TString latexText, double x, double y, double TextSize){
-// We can add any pT or eta selection. If no text is passed to the function the CMS Header will be drawn.
-TLatex latex;
-latex.SetNDC();              // For normalized coordinates
-latex.SetTextSize(TextSize);
-latex.SetTextFont(42);       // Helvetica
-latex.SetTextAlign(11);      // Left-top aligned.
-latex.DrawLatex(x, y, latexText);
-}
-
-//---Miscellaneous
-void printTreeContents(const Dataset &dataset){
-
-    std::string fullPath = dataset.basePath + dataset.filePattern;
-
-    TChain *chain = new TChain(dataset.treeName.c_str());
-    chain->Add(fullPath.c_str());
-
-    chain->Print();
-    std::cout << "Number of files = " << chain->GetListOfFiles()->GetEntries() << std::endl;
-
-    Long64_t nEvents = chain->GetEntries();
-    std::cout << "Total number of events = " << nEvents << std::endl;
-
-    std::cout << "Dataset: " << dataset.name << std::endl;
-    std::cout << "Tree: " << dataset.treeName << std::endl;
-    std::cout << "Path: " << fullPath << std::endl;
-}
-
-//---Still writing !!DONT USE!!
 void Make_invMassSpectrum(const Dataset &dataset){
 
     // Load root file.
@@ -221,6 +145,8 @@ void Make_invMassSpectrum(const Dataset &dataset){
     
     //Total number of events on Tree.
     Long64_t nEvents = chain->GetEntries();
+
+    std::cout << "> Number of total EVENTS in the tree = " << nEvents << "\n" << std::endl;
 
     //Event-level variables
     UInt_t eventNb;
@@ -440,6 +366,7 @@ void Make_invMassSpectrum(const Dataset &dataset){
 
     //Histograms
     TH1D *h_invMass = new TH1D("hist_invMass", "Z0 invMassSpectrum", 40, 70, 110);
+    TH1D *h_RAWinvMass = new TH1D("hist_RAWinvMass", "", 40, 70, 110);
     
     //Event-level cut values.
     const int minCentrality = 0.0;
@@ -463,6 +390,7 @@ void Make_invMassSpectrum(const Dataset &dataset){
     double etaplus, etaminus;
     //
 
+    //First loop, RAW invMassSpectrum.
     for(Long64_t i = 0; i < nEvents; ++i){ //Loop through all EVENTS in the CHAIN.
 
         chain->GetEntry(i); //Get event i.
@@ -515,6 +443,77 @@ void Make_invMassSpectrum(const Dataset &dataset){
 
             //if (!goodMuPl || !goodMuMi) continue;
 
+            h_RAWinvMass->Fill(Reco_Dimuon_invMass->at(j));
+        }
+
+        //Just to check the progress.
+        if (i % (nEvents / 100) == 0){
+
+            int percent = static_cast<int>(100.0 * i / nEvents+0.5);
+
+            std::cout << "\r"
+                      << percent
+                      << "% complete..."
+                      << std::flush;
+        }//
+    
+    }//Exiting event-by-event loop.
+
+    std::cout << "Raw invMass histogram filled. Applying cuts.\n" << std::endl; 
+
+    //Second loop, custom cuts.
+    for(Long64_t i = 0; i < nEvents; ++i){ //Loop through all EVENTS in the CHAIN.
+
+        chain->GetEntry(i); //Get event i.
+
+        //Good event selection
+        bool goodCent = (Centrality > minCentrality && Centrality < maxCentrality);
+        bool goodVertex = (std::abs(zVtx) < maxZvtx);
+        //Still missing 2 HF towers of 4 GeV of energy in the event.
+        //Shapes of clusters compatibility.
+
+        if (!goodCent) continue;
+        if (!goodVertex) continue;
+
+        for(Short_t j = 0; j < Reco_Dimuon_size; ++j){ //Loop through all reco dimuon candidates of event i.
+            
+            //Good Z selection
+            bool goodMass = (Reco_Dimuon_invMass->at(j) > minZ_Mass && Reco_Dimuon_invMass->at(j) < maxZ_Mass);
+            bool goodRapidity = (std::abs(Reco_Dimuon_rapidity->at(j)) < RapidityCutValue);
+
+            if (!goodMass) continue;
+            if (!goodRapidity) continue;
+
+            //Good muon selection
+            ptplus = Reco_Muon_pt->at(Reco_Dimuon_muonPlusIndex[j]); //pT of antimuon.
+            ptminus = Reco_Muon_pt->at(Reco_Dimuon_muonMinusIndex[j]); //pT of corresponding muon.
+            etaplus = Reco_Muon_eta->at(Reco_Dimuon_muonPlusIndex[j]); //Pseudorapidity of antimuon.
+            etaminus = Reco_Muon_eta->at(Reco_Dimuon_muonMinusIndex[j]); //Pseudorapidity of corresponding muon.
+            MuPlIsTight = Reco_Muon_isTightCutBased[Reco_Dimuon_muonPlusIndex[j]];
+            MuMiIsTight = Reco_Muon_isTightCutBased[Reco_Dimuon_muonMinusIndex[j]];
+            
+            //Still missing trigger matching selection. "At least one muon matched to L1 and HLT trigger".
+            //L1 matching, HLT matching...
+            //Reco_mu_trig[Reco_mu_size]/I.
+            //Muon ID selection (isGlobal, isTracker, isTight...)
+            //Track quality such as Number of Track Hits NTrkHits and Chi^2/ndf.
+            //Vertex quality with dxy, dz.
+            //Muon isolation. Maybe not needed...?
+            //One thing we need to verify is the possibility of the same muon being counted in different Z^0 candidates.
+            //e.g. 
+            //     Muon A + Muon B → candidate 1
+            //     Muon A + Muon C → candidate 2
+
+            bool goodMuPl = (ptplus > ptCutValue)
+                            && (std::abs(etaplus) < EtaCutValue)
+                            && (MuPlIsTight);
+
+            bool goodMuMi = (ptminus > ptCutValue)
+                            && (std::abs(etaminus) < EtaCutValue)
+                            && (MuMiIsTight);
+
+            if (!goodMuPl || !goodMuMi) continue;
+
             h_invMass->Fill(Reco_Dimuon_invMass->at(j));
         }
 
@@ -535,44 +534,50 @@ void Make_invMassSpectrum(const Dataset &dataset){
     std::cout << "\r100% complete!" << std::endl;
 
     //Starting histogram statistics calculation.
+    float N_of_RAWcandidates = h_RAWinvMass->GetEntries();
+    float N_of_candidates = h_invMass->GetEntries();
+
+    std::cout << "Number of RAW Z0 candidates = " << N_of_RAWcandidates << "\n" << std::endl; 
+    std::cout << "Number of Z0 candidates = " << N_of_candidates << "\n" << std::endl; 
+
+    float fraction_Kept = (N_of_candidates/N_of_RAWcandidates)*100.;
+
+    std::cout << "Fraction of Z0 candidates kept = " << fraction_Kept << "% \n" << std::endl; 
 
     TCanvas *myCanvas = new TCanvas("c_ptplmi", "", 700, 600);
     basicCanvasFormatting(myCanvas);
-    basicHistFormatting(hist_ptpl);
-    basicHistFormatting(hist_ptmi);
+    basicHistFormatting(h_RAWinvMass);
+    basicHistFormatting(h_invMass);
 
-    hist_ptpl->SetLineColor(kRed + 1);
-    hist_ptpl->SetLineWidth(2);
-    hist_ptmi->SetLineColor(kBlue + 1);
-    hist_ptmi->SetLineWidth(2);
-    hist_ptpl->GetXaxis()->SetTitle("p_{T} [GeV]");
-    hist_ptpl->GetYaxis()->SetTitle("Number of Z^{0} candidates [GeV^{-1}]");
+    h_RAWinvMass->GetXaxis()->SetTitle("M(#mu^{+}#mu^{-}) [GeV]");
+    h_RAWinvMass->GetYaxis()->SetTitle("N of dimuon candidates [GeV]^{-1}");
+
+    // Histogram formatting
+    h_RAWinvMass->SetLineColor(kBlue + 1);
+    h_RAWinvMass->SetLineWidth(2);
+    h_RAWinvMass->SetFillStyle(0);
+
+    h_invMass->SetLineColor(kOrange + 1);
+    h_invMass->SetLineWidth(2);
+    h_invMass->SetFillStyle(3001);
 
     //Zooming in for display only.
-    hist_ptpl->GetXaxis()->SetRangeUser(10, 100);
-    hist_ptpl->GetYaxis()->SetRangeUser(0, hist_ptpl->GetMaximum() + 60);
-    hist_ptpl->Draw("HIST");
-    hist_ptmi->Draw("HIST SAME");
+    h_RAWinvMass->Draw("HIST");
+    h_invMass->Draw("HIST SAME");
 
-    linePl->Draw("SAME");
-    lineMi->Draw("SAME");
+    // Legend
+    TLegend *legend = new TLegend(0.65, 0.70, 0.88, 0.85);
+    legend->SetBorderSize(0);
+    legend->SetFillStyle(0);
+    legend->AddEntry(h_RAWinvMass, "Raw", "l");
+    legend->AddEntry(h_invMass, "Selected", "l");
+    legend->Draw();
 
     drawLatexText();
     drawLatexText("#it{Internal}", 0.24, 0.93, 0.042);
     drawLatexText("PbPb 2024 (5.36 TeV)", 0.65, 0.93, 0.042);        
-    drawLatexText("Cent. 30-60%", 0.65, 0.35, 0.044);
 
-    TLegend* leg = new TLegend(0.5, 0.60, 0.72, 0.85);
-    basicLegendFormatting(leg);
-    leg->AddEntry(hist_ptpl, Form("#LT p_{T}(#mu^{+}) #GT = (%.2f #pm %.2f) GeV", mean_pl, mean_pl_err),"f");
-    leg->AddEntry(hist_ptmi, Form("#LT p_{T}(#mu^{-}) #GT = (%.2f #pm %.2f) GeV", mean_mi, mean_mi_err),"f");
-    leg->AddEntry(hist_ptpl, Form("p_{T}(#mu^{+}) peak = (%.1f #pm %.1f) GeV", xMaxPl, hist_ptpl->GetBinWidth(binMaxPl)/2.), "l");
-    leg->AddEntry(hist_ptmi, Form("p_{T}(#mu^{-}) peak = (%.1f #pm %.1f) GeV", xMaxMi, hist_ptmi->GetBinWidth(binMaxMi)/2.), "l");
-    leg->SetTextSize(0.038);
-    leg->SetEntrySeparation(0.038);
-    leg->Draw();
-
-    TString output = TString(dataset.name) + TString(__func__) + plot_extension;
+    TString output = TString(dataset.name) + TString(__func__) + ".png";
 
     myCanvas->Update();
     myCanvas->SaveAs(output);
@@ -580,5 +585,78 @@ void Make_invMassSpectrum(const Dataset &dataset){
     delete chain;
     delete myCanvas;
 }
+
+//---Histogram formatting
+
+void basicCanvasFormatting(TCanvas* c){
+    c->SetLeftMargin(0.12);
+    c->SetRightMargin(0.035);
+    c->SetBottomMargin(0.12);
+    c->SetTopMargin(0.08);
+    c->SetTickx(1);
+    c->SetTicky(1);
+    c->SetFillColor(0);
+    c->SetFrameFillColor(0);
+    c->SetFrameLineWidth(2);
+}
+
+void basicHistFormatting(TH1D* hist){
+	hist->GetXaxis()->CenterTitle(false);
+    hist->GetYaxis()->CenterTitle(false);
+    hist->GetXaxis()->SetTitleOffset(.9);
+    hist->GetYaxis()->SetTitleOffset(1.);
+    hist->GetXaxis()->SetTitleFont(42);
+    hist->GetYaxis()->SetTitleFont(42);
+    hist->GetXaxis()->SetLabelFont(42);
+    hist->GetYaxis()->SetLabelFont(42);
+    hist->GetXaxis()->SetTitleSize(0.055);
+    hist->GetYaxis()->SetTitleSize(0.055);
+    hist->GetXaxis()->SetLabelSize(0.042);
+    hist->GetYaxis()->SetLabelSize(0.042);
+    hist->SetTitle("");
+	hist->SetStats(0);
+	hist->SetMarkerStyle(20);
+	//hist->SetMarkerSize(0.9);
+}
+
+void basicLegendFormatting(TLegend *leg){
+    leg->SetBorderSize(0);
+    leg->SetFillStyle(0);
+    leg->SetTextSize(0.042);
+    leg->SetTextFont(42);
+    leg->SetMargin(0.2);
+    leg->SetEntrySeparation(0.04);
+}
+
+void drawLatexText(TString latexText, double x, double y, double TextSize){
+// We can add any pT or eta selection. If no text is passed to the function the CMS Header will be drawn.
+TLatex latex;
+latex.SetNDC();              // For normalized coordinates
+latex.SetTextSize(TextSize);
+latex.SetTextFont(42);       // Helvetica
+latex.SetTextAlign(11);      // Left-top aligned.
+latex.DrawLatex(x, y, latexText);
+}
+
+//---Miscellaneous
+void printTreeContents(const Dataset &dataset){
+
+    std::string fullPath = dataset.basePath + dataset.filePattern;
+
+    TChain *chain = new TChain(dataset.treeName.c_str());
+    chain->Add(fullPath.c_str());
+
+    chain->Print();
+    std::cout << "Number of files = " << chain->GetListOfFiles()->GetEntries() << std::endl;
+
+    Long64_t nEvents = chain->GetEntries();
+    std::cout << "Total number of events = " << nEvents << std::endl;
+
+    std::cout << "Dataset: " << dataset.name << std::endl;
+    std::cout << "Tree: " << dataset.treeName << std::endl;
+    std::cout << "Path: " << fullPath << std::endl;
+}
+
+//---Still writing !!DONT USE!!
 
 //---
