@@ -109,6 +109,7 @@ Dataset datasets[] = {
 
 
 //---Observables
+void Make_invMassSpectrum(const Dataset &dataset);
 
 //---Histogram formatting
 void basicCanvasFormatting(TCanvas *c);
@@ -120,7 +121,6 @@ void drawLatexText(TString latexText = "#bf{CMS}", double x = 0.15, double y = 0
 void printTreeContents(const Dataset &dataset);
 
 //---Still writing !!DONT USE!!
-void Make_invMassSpectrum(const Dataset &dataset);
 
 //---main()
 void invMassSpectra(){
