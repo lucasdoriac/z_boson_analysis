@@ -34,7 +34,7 @@ const dataFile rootFile_5TeV = {
     "_5TeV"
 };
 
-void ptPL_vs_ptMI(){
+void ptPL_vs_ptMI_CEN(){
 
 	gROOT->SetBatch(kTRUE);
 
@@ -86,6 +86,9 @@ void ptPL_vs_ptMI(){
 	dimuonTree->SetBranchAddress("Reco_QQ_4mom_pt", &Reco_QQ_4mom_pt);
 	dimuonTree->SetBranchAddress("Reco_QQ_4mom_m", &Reco_QQ_4mom_m);
 
+	int Centrality = 0;
+	dimuonTree->SetBranchAddress("Centrality", &Centrality);
+
 	for(Long64_t i = 0; i < nEvents; ++i){// Loop over events...
 		
 		dimuonTree->GetEntry(i);
@@ -94,7 +97,7 @@ void ptPL_vs_ptMI(){
 			
 			for(Short_t j = 0; j < Reco_QQ_size; ++j){//Maybe event has more than one candidate...
 
-				if(Reco_QQ_4mom_m->at(j) < 95.0 && Reco_QQ_4mom_m->at(j) > 85.0){//If j-th candidate has mass in [85,95] GeV...
+				if((Reco_QQ_4mom_m->at(j) < 95.0 && Reco_QQ_4mom_m->at(j) > 85.0) && (Centrality > 100 && Centrality <= 200)){//If j-th candidate has mass in [85,95] GeV...
 					
 					// The corresponding dimuon pair is indexed with idx variables.
 					double ptPlus = Reco_mu_4mom_pt->at(Reco_QQ_mupl_idx[j]);
@@ -176,8 +179,6 @@ void ptPL_vs_ptMI(){
 	double xMaxMi = hist_ptMi->GetBinCenter(binMaxMi);
 	double ymaxPl = hist_ptPl->GetMaximum();
 	double ymaxMi = hist_ptMi->GetMaximum();
-	double errPl  = hist_ptPl->GetBinError(binMaxPl);
-	double errMi  = hist_ptMi->GetBinError(binMaxMi);
 
 	TLine *linePl = new TLine(xMaxPl, 0.0, xMaxPl, ymaxPl);
 	TLine *lineMi = new TLine(xMaxMi, 0.0, xMaxMi, ymaxMi);
@@ -190,9 +191,9 @@ void ptPL_vs_ptMI(){
 	lineMi->SetLineWidth(2);
 	lineMi->SetLineStyle(2);
 
-	hist_ptPl->Draw("HIST E");
+	hist_ptPl->Draw("HIST");
 	linePl->Draw("SAME");
-	hist_ptMi->Draw("HIST E SAME");
+	hist_ptMi->Draw("HIST SAME");
 	lineMi->Draw("SAME");
 
 	TLegend *leg1 = new TLegend(0.6, 0.7, 0.85, 0.85);
@@ -200,8 +201,8 @@ void ptPL_vs_ptMI(){
 	leg1->SetFillStyle(0);
 	leg1->SetTextFont(42);
 	leg1->SetTextSize(0.04);
-	leg1->AddEntry(hist_ptPl, Form("#mu^{+} peak = %.1f #pm %.1f", xMaxPl, errPl), "l");
-	leg1->AddEntry(hist_ptMi, Form("#mu^{-} peak = %.1f #pm %.1f", xMaxMi, errMi), "l");
+	leg1->AddEntry(hist_ptPl, Form("#mu^{+} peak = %.1f", xMaxPl), "l");
+	leg1->AddEntry(hist_ptMi, Form("#mu^{-} peak = %.1f", xMaxMi), "l");
 	leg1->Draw();
 
 	TLatex latex;
@@ -226,7 +227,7 @@ void ptPL_vs_ptMI(){
 	latex3.DrawLatex(0.7, 0.93, "Partial PbPb 2024");
 
 	c->Update();
-	c->SaveAs("output3.png");
+	c->SaveAs("output_200.png");
 
 	rootFile->Close();
 }

@@ -1,0 +1,34 @@
+# ============================================================
+# Analysis output
+# ============================================================
+
+# ROOT output files
+*.root
+
+# Plots and figures
+*.png
+*.pdf
+
+# ============================================================
+# Temporary / generated files
+# ============================================================
+
+*.log
+*.out
+*.swp
+*~
+.DS_Store
+
+# ROOT/compiled artifacts
+*.so
+*.d
+*.pcm
+*.ACLiC_dict_rdict.pcm
+
+# ============================================================
+# Private CMS material
+# ============================================================
+
+# Keep private analysis material outside Git
+private/
+private_plots/

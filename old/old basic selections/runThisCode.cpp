@@ -1,13 +1,3 @@
-/*
-So, what i want to test here is if we are correctly choosing the dimuon pairs.
-
-We can build a set of tests, including invMassSpectrum.
-
-This is a test event-by-event like Cesar suggested.
-
-USE ONLY SINGLE MUONS AND NOT QQ MUONS.
-*/
-
 #include <TFile.h>
 #include <TDirectory.h>
 #include <TTree.h>
@@ -26,15 +16,16 @@ USE ONLY SINGLE MUONS AND NOT QQ MUONS.
 #include <string>
 #include <cstring>
 #include <vector>
+#include <cmath>
 
 // ### User Settings ###
 double eta_LowLimit = -2.4;
 double eta_HighLimit = 2.4;
-double pt_LowLimit = 14.0; // GeV.
+double pt_LowLimit = 20.0; // GeV.
 double pt_HighLimit = 100.0; // GeV. Later need to check if this limit is reasonable.
-double minDimuonMass = 85.0;
-double maxDimuonMass = 95.0; // GeV.
-double maxCentrality = 180; // % = what_centrality/2.
+double minDimuonMass = 80.0; // GeV.
+double maxDimuonMass = 100.0; // GeV.
+double maxCentrality = 180; // cen_bin% = max_centrality/2. e.g. max_centrality = 180 -> 0-90% centrality events.
 double delta = 1e-5;
 TString plot_extension = ".pdf";
 
@@ -70,25 +61,26 @@ const dataFile MC_PbPb_5TeV = {
 */
 
 // --- ready-to-go functions
+void pt_asymmetry();
+void pt_spectrum_muPLmuMI(const std::string& PathToROOTFile = "Oniatree_PbPb2024_PromptReco.root");
 void printTreeContents(const std::string& PathToROOTFile, const char* dir = "hionia", const char* tree = "myTree");
 void invMassSpectrum(const std::string& PathToROOTFile = "Oniatree_PbPb2024_PromptReco.root", int nBins = 40, int minMass = 70, int maxMass = 110);
-void drawLatexText(const char *latexText = "#bf{CMS}", double x = 0.16, double y = 0.93, double TextSize = 0.05);
+void drawLatexText(const char *latexText = "#bf{CMS}", double x = 0.15, double y = 0.93, double TextSize = 0.05);
 void basicCanvasFormatting(TCanvas *c);
 void basicHistFormatting(TH1D *hist);
 void basicLegendFormatting(TLegend *leg);
 // --- still writing
-void singleMuonTests(const std::string& PathToROOTFile = "Oniatree_PbPb2024_PromptReco.root");
 
-void test(){
+void runThisCode(){
 
 	gROOT->SetBatch(kTRUE);
 
 	//printTreeContents(PbPb_5TeV_2024.path);
-	//invMassSpectrum(PbPb_5TeV_2024.path);
-	singleMuonTests(PbPb_5TeV_2024.path);
+	invMassSpectrum(PbPb_5TeV_2024.path);
+	//pt_spectrum_muPLmuMI(PbPb_5TeV_2024.path);
 }
 
-void singleMuonTests(const std::string& PathToROOTFile){
+void pt_spectrum_muPLmuMI(const std::string& PathToROOTFile){
 	// Load root file.
 	TFile *rootFile = TFile::Open(PathToROOTFile.c_str(), "READ");
     rootFile->ls();
@@ -101,15 +93,23 @@ void singleMuonTests(const std::string& PathToROOTFile){
 
 	//Total number of events on Tree.
 	Long64_t nEvents = dimuonTree->GetEntries();
-
 	dimuonTree->Print();
 
+	//Event-level quantities
+	float zVtx;
+	dimuonTree->SetBranchAddress("zVtx", &zVtx);
+	int Centrality;
+	dimuonTree->SetBranchAddress("Centrality", &Centrality);
+
+	//Reco muon quantities
 	Short_t Reco_mu_size;
 	dimuonTree->SetBranchAddress("Reco_mu_size", &Reco_mu_size);
 
-	const int MAX_MU = 20;
+	const int MAX_MU = 1000;
 	Short_t Reco_mu_charge[MAX_MU];
 	dimuonTree->SetBranchAddress("Reco_mu_charge", Reco_mu_charge);
+	bool Reco_mu_isTightCutBased[MAX_MU];
+	dimuonTree->SetBranchAddress("Reco_mu_isTightCutBased", Reco_mu_isTightCutBased);
 
 	std::vector<float>* Reco_mu_4mom_pt = nullptr;
 	std::vector<float>* Reco_mu_4mom_eta = nullptr;
@@ -120,10 +120,11 @@ void singleMuonTests(const std::string& PathToROOTFile){
 	dimuonTree->SetBranchAddress("Reco_mu_4mom_phi", &Reco_mu_4mom_phi);
 	dimuonTree->SetBranchAddress("Reco_mu_4mom_m", &Reco_mu_4mom_m);
 
+	//Reco Z candidates quantities
 	Short_t Reco_QQ_size;
 	dimuonTree->SetBranchAddress("Reco_QQ_size", &Reco_QQ_size);
 
-	const int MAX_QQ = 10;
+	const int MAX_QQ = 100;
 	Short_t Reco_QQ_mupl_idx[MAX_QQ];
 	Short_t Reco_QQ_mumi_idx[MAX_QQ];
 	dimuonTree->SetBranchAddress("Reco_QQ_mupl_idx", Reco_QQ_mupl_idx);
@@ -141,24 +142,39 @@ void singleMuonTests(const std::string& PathToROOTFile){
 	//TH2D *hist_ptplmi = new TH2D("hist_pt_plmi", "p_{T}(#mu^{+}) vs p_{T}(#mu^{-})", 100, 0, 100, 100, 0, 100);
 	TH1D *hist_ptpl = new TH1D("hist_pt_pl", "p_{T}(#mu^{+})", 100, 0, 100);
 	TH1D *hist_ptmi = new TH1D("hist_pt_mi", "p_{T}(#mu^{i})", 100, 0, 100);
-	double ptplus, ptminus;
+	double ptplus, ptminus, etaplus, etaminus;
 
 	for(Long64_t i = 0; i < nEvents; ++i){//Loop events. "event-by-event"...
 
 		dimuonTree->GetEntry(i);//Get BRANCH values at the i-th event.
-		for(Short_t j = 0; j < Reco_QQ_size; ++j){//If event has dimuon candidate, flagged by Reco_QQ_size > 0...
+		bool goodVertex = (std::abs(zVtx) < 15.0);
+		bool goodCent = (Centrality > 60 && Centrality <= 180);
 
-			if(Reco_QQ_4mom_m->at(j) > minDimuonMass && Reco_QQ_4mom_m->at(j) < maxDimuonMass){//Note that i am getting the mass not from Reco_mu_4mom_m but from QQ...
+		if(goodVertex && goodCent){//Good event selection.
+
+			for(Short_t j = 0; j < Reco_QQ_size; ++j){//If event has dimuon candidate, flagged by Reco_QQ_size > 0...
 				
-				ptplus = Reco_mu_4mom_pt->at(Reco_QQ_mupl_idx[j]); //pT of antimuon...
-				ptminus = Reco_mu_4mom_pt->at(Reco_QQ_mumi_idx[j]); //pT of corresponding muon...
+				if(Reco_QQ_4mom_m->at(j) >= 80.0 && Reco_QQ_4mom_m->at(j) <= 100.0){//Z mass window
+					
+						ptplus = Reco_mu_4mom_pt->at(Reco_QQ_mupl_idx[j]); //pT of antimuon...
+						ptminus = Reco_mu_4mom_pt->at(Reco_QQ_mumi_idx[j]); //pT of corresponding muon...
+						etaplus = Reco_mu_4mom_eta->at(Reco_QQ_mupl_idx[j]);
+						etaminus = Reco_mu_4mom_eta->at(Reco_QQ_mumi_idx[j]);
 
-				hist_ptpl->Fill(ptplus);
-				hist_ptmi->Fill(ptminus);
+						//Good muon selection
+						bool goodMuonPlus = (ptplus >= 20.0) && (std::abs(etaplus) < 2.4) && (Reco_mu_isTightCutBased[Reco_QQ_mupl_idx[j]]);
+						bool goodMuonMinus = (ptminus >= 20.0) && (std::abs(etaminus) < 2.4) && (Reco_mu_isTightCutBased[Reco_QQ_mupl_idx[j]]);
+
+						if(goodMuonPlus && goodMuonMinus){
+							hist_ptpl->Fill(ptplus);
+							hist_ptmi->Fill(ptminus);
+						}
+				}
+				
 			}
-			
+		
 		}
-
+	
 	}//Exiting event-by-event loop.
 
 	//Calculate muon and antimuon yield...
@@ -207,16 +223,17 @@ void singleMuonTests(const std::string& PathToROOTFile){
 	//hist_ptpl->GetYaxis()->SetTitle("Number of events");
 	hist_ptpl->SetLineColor(kRed + 1);
 	hist_ptpl->SetLineWidth(2);
-	hist_ptpl->SetFillStyle(3004);
-	hist_ptpl->SetFillColorAlpha(kRed + 1, 0.35);
+	//hist_ptpl->SetFillStyle(3004);
+	//hist_ptpl->SetFillColorAlpha(kRed + 1, 0.35);
 	hist_ptmi->SetLineColor(kBlue + 1);
 	hist_ptmi->SetLineWidth(2);
-	hist_ptmi->SetFillStyle(3005);
-	hist_ptmi->SetFillColorAlpha(kBlue + 1, 0.35);
-    hist_ptpl->GetXaxis()->SetTitle("p_{T} (GeV)");
-	hist_ptpl->GetYaxis()->SetTitle("Number of Z^{0} candidates (GeV)^{-1}");
+	//hist_ptmi->SetFillStyle(3005);
+	//hist_ptmi->SetFillColorAlpha(kBlue + 1, 0.35);
+    hist_ptpl->GetXaxis()->SetTitle("p_{T} [GeV]");
+	hist_ptpl->GetYaxis()->SetTitle("Number of Z^{0} candidates [GeV^{-1}]");
 	//Zooming in for display only.
 	hist_ptpl->GetXaxis()->SetRangeUser(10, 100);
+	hist_ptpl->GetYaxis()->SetRangeUser(0, hist_ptpl->GetMaximum() + 60);
 	hist_ptpl->Draw("HIST");
 	hist_ptmi->Draw("HIST SAME");
 
@@ -224,20 +241,23 @@ void singleMuonTests(const std::string& PathToROOTFile){
 	lineMi->Draw("SAME");
 
 	drawLatexText();
-	drawLatexText("#it{Internal}", 0.25, 0.93, 0.042);
-	drawLatexText("#it{partial} PbPb 2024 (5.36 TeV)", 0.55, 0.93, 0.042);
+	drawLatexText("#it{Internal}", 0.24, 0.93, 0.042);
+	drawLatexText("PbPb 2024 (5.36 TeV)", 0.65, 0.93, 0.042);
 	//drawLatexText(Form("Z yield = %d #pm %d", TMath::Nint(z_yield), TMath::Nint(z_yield_err)), 0.18, 0.8, 0.04);
 	//drawLatexText(Form("m_{#mu^{+}#mu^{-}} = (%.2f #pm %.2f) GeV", mean, mean_err), 0.18, 0.72, 0.04);
 	//drawLatexText(Form("#sigma_{m_{#mu^{+}#mu^{-}}} = (%.2f #pm %.2f) GeV", std_dev, std_dev_err), 0.18, 0.64, 0.04);
-	drawLatexText(Form("%d < m_{#mu^{+}#mu^{-}} < %d GeV", TMath::Nint(minDimuonMass), TMath::Nint(maxDimuonMass)), 0.54, 0.8, 0.042);
+	//drawLatexText(Form("%d < m_{#mu^{+}#mu^{-}} < %d GeV", TMath::Nint(minDimuonMass), TMath::Nint(maxDimuonMass)), 0.62, 0.45, 0.042);
+	drawLatexText("Cent. 30-90%", 0.65, 0.35, 0.044);
 	//drawLatexText(Form("|#eta| < %.1f", eta_HighLimit), 0.23, 0.33, 0.04);
 
-	TLegend* leg = new TLegend(0.54, 0.45, 0.87, 0.75);
+	TLegend* leg = new TLegend(0.5, 0.60, 0.72, 0.85);
 	basicLegendFormatting(leg);
-	leg->AddEntry(hist_ptpl, Form("#LT p_{T}(#mu^{+}) #GT = %.2f #pm %.2f", mean_pl, mean_pl_err),"f");
-	leg->AddEntry(hist_ptmi, Form("#LT p_{T}(#mu^{-}) #GT = %.2f #pm %.2f", mean_mi, mean_mi_err),"f");
-	leg->AddEntry(hist_ptpl, Form("#mu^{+} peak = %.1f", xMaxPl), "l");
-	leg->AddEntry(hist_ptmi, Form("#mu^{-} peak = %.1f", xMaxMi), "l");
+	leg->AddEntry(hist_ptpl, Form("#LT p_{T}(#mu^{+}) #GT = (%.2f #pm %.2f) GeV", mean_pl, mean_pl_err),"f");
+	leg->AddEntry(hist_ptmi, Form("#LT p_{T}(#mu^{-}) #GT = (%.2f #pm %.2f) GeV", mean_mi, mean_mi_err),"f");
+	leg->AddEntry(hist_ptpl, Form("p_{T}(#mu^{+}) peak = (%.1f #pm %.1f) GeV", xMaxPl, hist_ptpl->GetBinWidth(binMaxPl)/2.), "l");
+	leg->AddEntry(hist_ptmi, Form("p_{T}(#mu^{-}) peak = (%.1f #pm %.1f) GeV", xMaxMi, hist_ptmi->GetBinWidth(binMaxMi)/2.), "l");
+    leg->SetTextSize(0.038);
+    leg->SetEntrySeparation(0.038);
 	leg->Draw();
 
 	TString output = TString(__func__) + plot_extension;
@@ -263,13 +283,36 @@ void invMassSpectrum(const std::string& PathToROOTFile, int nBins, int minMass, 
 	//Total number of events on Tree.
 	Long64_t nEvents = dimuonTree->GetEntries();
 
-	Short_t Reco_QQ_size;
-	dimuonTree->SetBranchAddress("Reco_QQ_size", &Reco_QQ_size);
-
+	//Event-level quantities
+	float zVtx;
+	dimuonTree->SetBranchAddress("zVtx", &zVtx);
 	int Centrality;
 	dimuonTree->SetBranchAddress("Centrality", &Centrality);
 
-	const int MAX_QQ = 10;
+	//Reco muon quantities
+	Short_t Reco_mu_size;
+	dimuonTree->SetBranchAddress("Reco_mu_size", &Reco_mu_size);
+
+	const int MAX_MU = 1000;
+	Short_t Reco_mu_charge[MAX_MU];
+	dimuonTree->SetBranchAddress("Reco_mu_charge", Reco_mu_charge);
+	bool Reco_mu_isTightCutBased[MAX_MU];
+	dimuonTree->SetBranchAddress("Reco_mu_isTightCutBased", Reco_mu_isTightCutBased);
+
+	std::vector<float>* Reco_mu_4mom_pt = nullptr;
+	std::vector<float>* Reco_mu_4mom_eta = nullptr;
+	std::vector<float>* Reco_mu_4mom_phi = nullptr;
+	std::vector<float>* Reco_mu_4mom_m = nullptr;
+	dimuonTree->SetBranchAddress("Reco_mu_4mom_pt", &Reco_mu_4mom_pt);
+	dimuonTree->SetBranchAddress("Reco_mu_4mom_eta", &Reco_mu_4mom_eta);
+	dimuonTree->SetBranchAddress("Reco_mu_4mom_phi", &Reco_mu_4mom_phi);
+	dimuonTree->SetBranchAddress("Reco_mu_4mom_m", &Reco_mu_4mom_m);
+
+	//Reco Z candidates quantities
+	Short_t Reco_QQ_size;
+	dimuonTree->SetBranchAddress("Reco_QQ_size", &Reco_QQ_size);
+
+	const int MAX_QQ = 100;
 	Short_t Reco_QQ_mupl_idx[MAX_QQ];
 	Short_t Reco_QQ_mumi_idx[MAX_QQ];
 	dimuonTree->SetBranchAddress("Reco_QQ_mupl_idx", Reco_QQ_mupl_idx);
@@ -286,20 +329,38 @@ void invMassSpectrum(const std::string& PathToROOTFile, int nBins, int minMass, 
 
 	TH1D *h_invMass = new TH1D("h_invMass","Dimuon invariant mass", nBins, minMass, maxMass);
 	h_invMass->SetDirectory(0);
+	double ptplus, ptminus, etaplus, etaminus;
 
-	for(Long64_t i = 0; i < nEvents; ++i){
+	for(Long64_t i = 0; i < nEvents; ++i){//Loop events. "event-by-event"...
 
-		dimuonTree->GetEntry(i);
+		dimuonTree->GetEntry(i);//Get BRANCH values at the i-th event.
+		bool goodVertex = (std::abs(zVtx) < 15.0);
+		bool goodCent = (Centrality > 60 && Centrality <= 140);
 
-		if (Reco_QQ_size > 0){//If the event has a dimuon candidate, runs the loop, if not, go to next event.
-			for (size_t j = 0; j < Reco_QQ_4mom_m->size(); ++j){
-				h_invMass->Fill(Reco_QQ_4mom_m->at(j));
+		if(goodVertex && goodCent){//Good event selection.
+
+			for(Short_t j = 0; j < Reco_QQ_size; ++j){//If event has dimuon candidate, flagged by Reco_QQ_size > 0... j = N of dimuons on the i event.
+
+				if(Reco_QQ_4mom_m->at(j) >= 80.0 && Reco_QQ_4mom_m->at(j) <= 100.0){//Z mass window
+					
+						ptplus = Reco_mu_4mom_pt->at(Reco_QQ_mupl_idx[j]); //pT of antimuon...
+						ptminus = Reco_mu_4mom_pt->at(Reco_QQ_mumi_idx[j]); //pT of corresponding muon...
+						etaplus = Reco_mu_4mom_eta->at(Reco_QQ_mupl_idx[j]);
+						etaminus = Reco_mu_4mom_eta->at(Reco_QQ_mumi_idx[j]);
+
+						//Good muon selection
+						bool goodMuonPlus = (ptplus >= 20.0) && (std::abs(etaplus) < 2.4) && (Reco_mu_isTightCutBased[Reco_QQ_mupl_idx[j]]);
+						bool goodMuonMinus = (ptminus >= 20.0) && (std::abs(etaminus) < 2.4) && (Reco_mu_isTightCutBased[Reco_QQ_mupl_idx[j]]);
+
+						if(goodMuonPlus && goodMuonMinus){
+							h_invMass->Fill(Reco_QQ_4mom_m->at(j));
+						}
+				}
 			}
 		}
 
 	}//Exiting event-by-event loop...
 
-	//Set specified mass range for Z candidates...
 	h_invMass->GetXaxis()->SetRangeUser(minDimuonMass, maxDimuonMass);
 	//Calculate Z boson yield...
 	int minMass_bin = h_invMass->FindBin(minDimuonMass + delta);
@@ -320,11 +381,10 @@ void invMassSpectrum(const std::string& PathToROOTFile, int nBins, int minMass, 
 	basicHistFormatting(h_invMass);
 	//basicLegendFormatting();
 
-	//Zooming out for display only.
 	h_invMass->GetXaxis()->SetRangeUser(minMass, maxMass);
 	h_invMass->Scale(1e-3);
-    h_invMass->GetXaxis()->SetTitle("m_{#mu^{+}#mu^{-}} (GeV)");
-    h_invMass->GetYaxis()->SetTitle("Number of events");
+    h_invMass->GetXaxis()->SetTitle("m_{#mu^{+}#mu^{-}} [GeV]");
+    h_invMass->GetYaxis()->SetTitle("Dimuon candidates [GeV^{-1}]");
 	h_invMass->SetLineColor(kOrange + 7);
 	h_invMass->SetLineWidth(2);
 	h_invMass->SetFillStyle(3005);
@@ -336,11 +396,12 @@ void invMassSpectrum(const std::string& PathToROOTFile, int nBins, int minMass, 
 	drawLatexText();
 	drawLatexText("#it{Internal}", 0.25, 0.93, 0.042);
 	drawLatexText("#times 10^{3}", 0.08, 0.93, 0.042);
-	drawLatexText("#it{partial} PbPb 2024 (5.36 TeV)", 0.55, 0.93, 0.042);
-	drawLatexText(Form("Z yield = %d #pm %d", TMath::Nint(z_yield), TMath::Nint(z_yield_err)), 0.18, 0.8, 0.04);
-	drawLatexText(Form("m_{#mu^{+}#mu^{-}} = (%.2f #pm %.2f) GeV", mean, mean_err), 0.18, 0.72, 0.04);
-	drawLatexText(Form("#sigma_{m_{#mu^{+}#mu^{-}}} = (%.2f #pm %.2f) GeV", std_dev, std_dev_err), 0.18, 0.64, 0.04);
-	drawLatexText(Form("%d < m_{#mu^{+}#mu^{-}} < %d GeV", TMath::Nint(minDimuonMass), TMath::Nint(maxDimuonMass)), 0.64, 0.8, 0.04);
+	drawLatexText("PbPb 2024 (5.36 TeV)", 0.65, 0.93, 0.042);
+	drawLatexText(Form("Z yield = %d #pm %d", TMath::Nint(z_yield), TMath::Nint(z_yield_err)), 0.17, 0.8, 0.04);
+	drawLatexText(Form("m_{#mu^{+}#mu^{-}} = (%.2f #pm %.2f) GeV", mean, mean_err), 0.17, 0.74, 0.04);
+	drawLatexText(Form("#sigma_{m_{#mu^{+}#mu^{-}}} = (%.2f #pm %.2f) GeV", std_dev, std_dev_err), 0.17, 0.68, 0.04);
+	drawLatexText(Form("%d < m_{#mu^{+}#mu^{-}} < %d GeV", TMath::Nint(minDimuonMass), TMath::Nint(maxDimuonMass)), 0.62, 0.78, 0.04);
+	drawLatexText("Cent. 30-70%", 0.2, 0.3, 0.044);
 	//drawLatexText(Form("|#eta| < %.1f", eta_HighLimit), 0.23, 0.33, 0.04);
 
 	TString output = TString(__func__) + plot_extension;
@@ -362,9 +423,9 @@ latex.DrawLatex(x, y, latexText);
 }
 
 void basicCanvasFormatting(TCanvas* c){
-    c->SetLeftMargin(0.14);
+    c->SetLeftMargin(0.12);
     c->SetRightMargin(0.035);
-    c->SetBottomMargin(0.14);
+    c->SetBottomMargin(0.12);
     c->SetTopMargin(0.08);
     c->SetTickx(1);
     c->SetTicky(1);
@@ -374,16 +435,16 @@ void basicCanvasFormatting(TCanvas* c){
 }
 
 void basicHistFormatting(TH1D* hist){
-	hist->GetXaxis()->CenterTitle(true);
-    hist->GetYaxis()->CenterTitle(true);
-    hist->GetXaxis()->SetTitleOffset(0.9);
-    hist->GetYaxis()->SetTitleOffset(0.9);
+	hist->GetXaxis()->CenterTitle(false);
+    hist->GetYaxis()->CenterTitle(false);
+    hist->GetXaxis()->SetTitleOffset(.9);
+    hist->GetYaxis()->SetTitleOffset(1.);
     hist->GetXaxis()->SetTitleFont(42);
     hist->GetYaxis()->SetTitleFont(42);
     hist->GetXaxis()->SetLabelFont(42);
     hist->GetYaxis()->SetLabelFont(42);
-    hist->GetXaxis()->SetTitleSize(0.06);
-    hist->GetYaxis()->SetTitleSize(0.06);
+    hist->GetXaxis()->SetTitleSize(0.055);
+    hist->GetYaxis()->SetTitleSize(0.055);
     hist->GetXaxis()->SetLabelSize(0.042);
     hist->GetYaxis()->SetLabelSize(0.042);
     hist->SetTitle("");
