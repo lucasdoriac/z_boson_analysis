@@ -28,6 +28,8 @@
 # ============================================================
 # Private CMS material
 # ============================================================
+Data/
+MC/
 
 # Keep private analysis material outside Git
 private/
