@@ -25,8 +25,8 @@
 //---Macro settings
 
 TString plot_extension = ".pdf";
-std::string BasePath = "/home/lucas/Documents/CMS_analyzes/Z_boson_analysis/"; //IFT
-//std::string BasePath = ""; //Home
+//std::string BasePath = "/home/lucas/Documents/CMS_analyzes/Z_boson_analysis/"; //IFT
+std::string BasePath = "/home/lucasdoriac/z_boson_analysis/"; //Home
 
 // ##############################################################################
 // ##############################################################################
