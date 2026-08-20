@@ -4,6 +4,15 @@ Apply each selection individually until all selections are applied.
 Keep track of Z yield at every applied basic selection.
 
 For example: goodCent -> Plot invMassSpectrum & Z yield = N -> goodCent + goodVertex -> Plot invMassSpectrum & Z yield = N-a.
+
+20/08 - Let's implement the new selections that Florian suggested.
+            These were :    - make sure to require "dimuon charge == 0" since I keep the same-sign pairs too now
+                            - occasionally the same muon gets paired twice in the same candidate
+                            For example muon1 is paired with muon2 and muon3
+                            yep, all potential pairs are kept
+                            We will have to study multi Z candidates cases at some point
+
+
 */
 
 //---Libraries
