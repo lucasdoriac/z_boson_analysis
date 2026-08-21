@@ -26,7 +26,7 @@
 
 TString plot_extension = ".png"; // ".png" for regular development and ".pdf" for final quality plots
 //std::string BasePath = "/home/lucas/Documents/CMS_analyzes/Z_boson_analysis/"; //IFT
-//std::string BasePath = "/home/lucasdoriac/z_boson_analysis/"; //Home
+//std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
 
 // ##############################################################################
 // ##############################################################################
