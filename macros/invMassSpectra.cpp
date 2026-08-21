@@ -5,14 +5,6 @@ Keep track of Z yield at every applied basic selection.
 
 For example: goodCent -> Plot invMassSpectrum & Z yield = N -> goodCent + goodVertex -> Plot invMassSpectrum & Z yield = N-a.
 
-20/08 - Let's implement the new selections that Florian suggested.
-            These were :    - make sure to require "dimuon charge == 0" since I keep the same-sign pairs too now
-                            - occasionally the same muon gets paired twice in the same candidate
-                            For example muon1 is paired with muon2 and muon3
-                            yep, all potential pairs are kept
-                            We will have to study multi Z candidates cases at some point
-
-
 */
 
 //---Libraries
@@ -508,14 +500,11 @@ void Make_invMassSpectrum(const Dataset &dataset){
             //Still missing trigger matching selection. "At least one muon matched to L1 and HLT trigger".
             //L1 matching, HLT matching...
             //Reco_mu_trig[Reco_mu_size]/I.
+            
             //Muon ID selection (isGlobal, isTracker, isTight...)
             //Track quality such as Number of Track Hits NTrkHits and Chi^2/ndf.
             //Vertex quality with dxy, dz.
             //Muon isolation. Maybe not needed...?
-            //One thing we need to verify is the possibility of the same muon being counted in different Z^0 candidates.
-            //e.g. 
-            //     Muon A + Muon B → candidate 1
-            //     Muon A + Muon C → candidate 2
 
             bool goodMuPl = (ptplus > ptCutValue)
                             && (std::abs(etaplus) < EtaCutValue)
