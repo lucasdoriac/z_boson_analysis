@@ -1,7 +1,3 @@
-# ============================================================
-# Analysis output
-# ============================================================
-
 # ROOT output files
 *.root
 
@@ -9,9 +5,7 @@
 *.png
 *.pdf
 
-# ============================================================
 # Temporary / generated files
-# ============================================================
 
 *.log
 *.out
@@ -25,12 +19,10 @@
 *.pcm
 *.ACLiC_dict_rdict.pcm
 
-# ============================================================
-# Private CMS material
-# ============================================================
+# Datasets
 Data/
 MC/
 
-# Keep private analysis material outside Git
+# Private CMS material / plots / results
 private/
 private_plots/
