@@ -39,9 +39,9 @@ For example: goodCent -> Plot invMassSpectrum & Z yield = N -> goodCent + goodVe
 
 //---Macro settings
 
-TString plot_extension = ".pdf";
-std::string BasePath = "/home/lucas/Documents/CMS_analyzes/Z_boson_analysis/"; //IFT
-//std::string BasePath = ""; //Home
+TString plot_extension = ".png"; // ".png" for regular development and ".pdf" for final quality plots
+//std::string BasePath = "/home/lucas/Documents/CMS_analyzes/Z_boson_analysis/"; //IFT
+std::string BasePath = "/home/lucasdoriac/z_boson_analysis/"; //Home
 
 // ##############################################################################
 // ##############################################################################
@@ -491,9 +491,11 @@ void Make_invMassSpectrum(const Dataset &dataset){
             //Good Z selection
             bool goodMass = (Reco_Dimuon_invMass->at(j) > minZ_Mass && Reco_Dimuon_invMass->at(j) < maxZ_Mass);
             bool goodRapidity = (std::abs(Reco_Dimuon_rapidity->at(j)) < RapidityCutValue);
+            bool goodCharge = (Reco_Dimuon_sign[j] == 0);
 
             if (!goodMass) continue;
             if (!goodRapidity) continue;
+            if (!goodCharge) continue;
 
             //Good muon selection
             ptplus = Reco_Muon_pt->at(Reco_Dimuon_muonPlusIndex[j]); //pT of antimuon.
