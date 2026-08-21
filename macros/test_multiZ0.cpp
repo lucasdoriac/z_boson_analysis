@@ -21,6 +21,7 @@
 #include <cstring>
 #include <vector>
 #include <cmath>
+#include <set>
 
 //---Macro settings
 
@@ -442,8 +443,8 @@ void pT_asymmetry(const Dataset &dataset){
     const double maxZvtx = 15.0;
 
     //Z-level cut values.
-    const double minZ_Mass = 80.0; 
-    const double maxZ_Mass = 100.0; 
+    const double minZ_Mass = 0.0; 
+    const double maxZ_Mass = 120.0; 
     const double RapidityCutValue = 2.4;
 
     //Muon-level cut values.
@@ -472,9 +473,10 @@ void pT_asymmetry(const Dataset &dataset){
         if (!goodCent) continue;
         if (!goodVertex) continue;
 
-        //Checking if there are dimuons with the same muons.
-        //Part 1
-        
+        //Set of muon indices to use as tag for bad combinatorics later.
+        std::set<Short_t> usedMuonIndices;
+        bool printedRepeatedCandidate = false;
+
         for(Short_t j = 0; j < Reco_Dimuon_size; ++j){ //Loop through all reco dimuon candidates of event i.
             
             //Good Z selection
@@ -486,13 +488,17 @@ void pT_asymmetry(const Dataset &dataset){
             if (!goodRapidity) continue;
             if (!goodCharge) continue;
 
+            //Get corresponding muon indices.
+            Short_t MuPlIndex = Reco_Dimuon_muonPlusIndex[j];
+            Short_t MuMiIndex = Reco_Dimuon_muonMinusIndex[j];
+
             //Good muon selection
-            ptplus = Reco_Muon_pt->at(Reco_Dimuon_muonPlusIndex[j]); //pT of antimuon.
-            ptminus = Reco_Muon_pt->at(Reco_Dimuon_muonMinusIndex[j]); //pT of corresponding muon.
-            etaplus = Reco_Muon_eta->at(Reco_Dimuon_muonPlusIndex[j]); //Pseudorapidity of antimuon.
-            etaminus = Reco_Muon_eta->at(Reco_Dimuon_muonMinusIndex[j]); //Pseudorapidity of corresponding muon.
-            MuPlIsTight = Reco_Muon_isTightCutBased[Reco_Dimuon_muonPlusIndex[j]];
-            MuMiIsTight = Reco_Muon_isTightCutBased[Reco_Dimuon_muonMinusIndex[j]];
+            ptplus = Reco_Muon_pt->at(MuPlIndex); //pT of antimuon.
+            ptminus = Reco_Muon_pt->at(MuMiIndex); //pT of corresponding muon.
+            etaplus = Reco_Muon_eta->at(MuPlIndex); //Pseudorapidity of antimuon.
+            etaminus = Reco_Muon_eta->at(MuMiIndex); //Pseudorapidity of corresponding muon.
+            MuPlIsTight = Reco_Muon_isTightCutBased[MuPlIndex];
+            MuMiIsTight = Reco_Muon_isTightCutBased[MuMiIndex];
             
             //Still missing trigger matching selection. "At least one muon matched to L1 and HLT trigger".
             //L1 matching, HLT matching...
@@ -516,14 +522,44 @@ void pT_asymmetry(const Dataset &dataset){
 
             if (!goodMuPl || !goodMuMi) continue;
 
-                for(Short_t k = 0; k < j; ++k){
-                 if(Reco_Dimuon_muonPlusIndex[k] == Reco_Dimuon_muonPlusIndex[j]
-                    || Reco_Dimuon_muonMinusIndex[k] == Reco_Dimuon_muonMinusIndex[j]){
-                    std::cout << "Found repeated index at event " << i << std::endl;
-                    RepeatedIndexCounter+=1;
-                 }
+            //goodCombinatorics check:
+            if (usedMuonIndices.count(MuPlIndex) ||
+                usedMuonIndices.count(MuMiIndex)) {
+
+                RepeatedIndexCounter+=1;
+
+                if (!printedRepeatedCandidate) {
+
+                    std::cout << "\n========================================\n";
+                    std::cout << "First repeated-muon candidate found\n";
+                    std::cout << "Event: " << i << "\n";
+                    std::cout << "Candidate: " << j << "\n";
+
+                    std::cout << "Current candidate:"
+                            << " mu+ = " << MuPlIndex
+                            << ", mu- = " << MuMiIndex
+                            << "\n";
+
+                    std::cout << "Previously used muon indices: ";
+
+                    for (Short_t index : usedMuonIndices)
+                        std::cout << index << " ";
+
+                    std::cout << "\n";
+
+                    std::cout << "This candidate is REJECTED.\n";
+                    std::cout << "========================================\n\n";
+
+                    printedRepeatedCandidate = true;
                 }
+
+                continue;
             }
+
+            usedMuonIndices.insert(MuPlIndex);
+            usedMuonIndices.insert(MuMiIndex);
+
+        }
 
         //Just to check the progress.
         if (i % (nEvents / 100) == 0){
