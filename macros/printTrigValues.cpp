@@ -1,10 +1,5 @@
 /*
-The goal is to build n invMassSpectrum plots, where n = N of good selections.
-Apply each selection individually until all selections are applied.
-Keep track of Z yield at every applied basic selection.
-
-For example: goodCent -> Plot invMassSpectrum & Z yield = N -> goodCent + goodVertex -> Plot invMassSpectrum & Z yield = N-a.
-
+Trying to apply muon match selection.
 */
 
 //---Libraries
@@ -28,6 +23,7 @@ For example: goodCent -> Plot invMassSpectrum & Z yield = N -> goodCent + goodVe
 #include <cstring>
 #include <vector>
 #include <cmath>
+#include <map>
 
 //---Macro settings
 
@@ -110,7 +106,7 @@ Dataset datasets[] = {
 
 
 //---Observables
-void Make_invMassSpectrum(const Dataset &dataset);
+void testMuonMatchSelection(const Dataset &dataset);
 
 //---Histogram formatting
 void basicCanvasFormatting(TCanvas *c);
@@ -124,15 +120,15 @@ void printTreeContents(const Dataset &dataset);
 //---Still writing !!DONT USE!!
 
 //---main()
-void invMassSpectra(){
+void printTrigValues(){
 
 	gROOT->SetBatch(kTRUE);
 
-    Make_invMassSpectrum(datasets[1]);
+    testMuonMatchSelection(datasets[1]);
 }
 
 //---Observables
-void Make_invMassSpectrum(const Dataset &dataset){
+void testMuonMatchSelection(const Dataset &dataset){
 
     // Load root file.
     std::string fullPath = dataset.basePath + dataset.filePattern;
@@ -367,10 +363,6 @@ void Make_invMassSpectrum(const Dataset &dataset){
     chain->SetBranchAddress("Reco_Muon_HIMVAIsoWP90", &Reco_Muon_HIMVAIsoWP90);
     chain->SetBranchAddress("Reco_Muon_HIMVAIsoWP95", &Reco_Muon_HIMVAIsoWP95);
 
-    //Histograms
-    TH1D *h_invMass = new TH1D("hist_invMass", "Z0 invMassSpectrum", 40, 70, 110);
-    TH1D *h_RAWinvMass = new TH1D("hist_RAWinvMass", "", 40, 70, 110);
-    
     //Event-level cut values.
     const int minCentrality = 0.0;
     const int maxCentrality = 180; //Cent max = maxCentrality/2.
@@ -393,204 +385,46 @@ void Make_invMassSpectrum(const Dataset &dataset){
     double etaplus, etaminus;
     //
 
-    //First loop, RAW invMassSpectrum.
-    for(Long64_t i = 0; i < nEvents; ++i){ //Loop through all EVENTS in the CHAIN.
+    // Antes do event loop
+    std::map<int, Long64_t> trigBitCount;
 
-        chain->GetEntry(i); //Get event i.
+for (Long64_t i = 0; i < nEvents; ++i) {
 
-        //Good event selection
-        //bool goodCent = (Centrality > minCentrality && Centrality < maxCentrality);
-        //bool goodVertex = (std::abs(zVtx) < maxZvtx);
-        //Still missing 2 HF towers of 4 GeV of energy in the event.
-        //Shapes of clusters compatibility.
+    chain->GetEntry(i);
 
-        //if (!goodCent) continue;
-        //if (!goodVertex) continue;
+    for (Short_t j = 0; j < Reco_Dimuon_size; ++j) {
 
-        for(Short_t j = 0; j < Reco_Dimuon_size; ++j){ //Loop through all reco dimuon candidates of event i.
-            
-            //Good Z selection
-            //bool goodMass = (Reco_Dimuon_invMass->at(j) > minZ_Mass && Reco_Dimuon_invMass->at(j) < maxZ_Mass);
-            //bool goodRapidity = (std::abs(Reco_Dimuon_rapidity->at(j)) < RapidityCutValue);
+        Short_t MuPlIndex = Reco_Dimuon_muonPlusIndex[j];
+        Short_t MuMiIndex = Reco_Dimuon_muonMinusIndex[j];
 
-            //if (!goodMass) continue;
-            //if (!goodRapidity) continue;
+        Short_t trigPlus  = Reco_Muon_trig[MuPlIndex];
+        Short_t trigMinus = Reco_Muon_trig[MuMiIndex];
 
-            //Good muon selection
-            //ptplus = Reco_Muon_pt->at(Reco_Dimuon_muonPlusIndex[j]); //pT of antimuon.
-            //ptminus = Reco_Muon_pt->at(Reco_Dimuon_muonMinusIndex[j]); //pT of corresponding muon.
-            //etaplus = Reco_Muon_eta->at(Reco_Dimuon_muonPlusIndex[j]); //Pseudorapidity of antimuon.
-            //etaminus = Reco_Muon_eta->at(Reco_Dimuon_muonMinusIndex[j]); //Pseudorapidity of corresponding muon.
-            //MuPlIsTight = Reco_Muon_isTightCutBased[Reco_Dimuon_muonPlusIndex[j]];
-            //MuMiIsTight = Reco_Muon_isTightCutBased[Reco_Dimuon_muonMinusIndex[j]];
-            
-            //Still missing trigger matching selection. "At least one muon matched to L1 and HLT trigger".
-            //L1 matching, HLT matching...
-            //Reco_mu_trig[Reco_mu_size]/I.
-            //Muon ID selection (isGlobal, isTracker, isTight...)
-            //Track quality such as Number of Track Hits NTrkHits and Chi^2/ndf.
-            //Vertex quality with dxy, dz.
-            //Muon isolation. Maybe not needed...?
-            //One thing we need to verify is the possibility of the same muon being counted in different Z^0 candidates.
-            //e.g. 
-            //     Muon A + Muon B → candidate 1
-            //     Muon A + Muon C → candidate 2
+        // Percorre os bits
+        for (int bit = 0; bit < 9; ++bit) {
 
-            //bool goodMuPl = (ptplus > ptCutValue) 
-            //                && (std::abs(etaplus) < EtaCutValue) 
-            //                && (MuPlIsTight);
+            if (trigPlus & (1 << bit)) {
+                trigBitCount[bit]++;
+            }
 
-            //bool goodMuMi = (ptminus > ptCutValue) 
-            //                && (std::abs(etaminus) < EtaCutValue) 
-            //                && (MuMiIsTight);
-
-            //if (!goodMuPl || !goodMuMi) continue;
-
-            h_RAWinvMass->Fill(Reco_Dimuon_invMass->at(j));
+            if (trigMinus & (1 << bit)) {
+                trigBitCount[bit]++;
+            }
         }
+    }
+}
 
-        //Just to check the progress.
-        if (i % (nEvents / 100) == 0){
+std::cout << "\n=== Contagem por bit de trigger ===\n";
 
-            int percent = static_cast<int>(100.0 * i / nEvents+0.5);
+for (const auto& [bit, count] : trigBitCount) {
 
-            std::cout << "\r"
-                      << percent
-                      << "% complete..."
-                      << std::flush;
-        }//
-    
-    }//Exiting event-by-event loop.
-
-    std::cout << "Raw invMass histogram filled. Applying cuts.\n" << std::endl; 
-
-    //New trigger selection 'L2SingleMu12'
-    ULong64_t triggerMatch = 1ULL << 7;
-
-    //Second loop, custom cuts.
-    for(Long64_t i = 0; i < nEvents; ++i){ //Loop through all EVENTS in the CHAIN.
-
-        chain->GetEntry(i); //Get event i.
-
-        //Good event selection
-        bool goodCent = (Centrality > minCentrality && Centrality < maxCentrality);
-        bool goodVertex = (std::abs(zVtx) < maxZvtx);
-        //Still missing 2 HF towers of 4 GeV of energy in the event.
-        //Shapes of clusters compatibility.
-
-        if (!goodCent) continue;
-        if (!goodVertex) continue;
-
-        for(Short_t j = 0; j < Reco_Dimuon_size; ++j){ //Loop through all reco dimuon candidates of event i.
-            
-            //Good Z selection
-            bool goodMass = (Reco_Dimuon_invMass->at(j) > minZ_Mass && Reco_Dimuon_invMass->at(j) < maxZ_Mass);
-            bool goodRapidity = (std::abs(Reco_Dimuon_rapidity->at(j)) < RapidityCutValue);
-            bool goodCharge = (Reco_Dimuon_sign[j] == 0);
-            bool goodTrigger = (Reco_Dimuon_trig[j]) & triggerMatch;
-
-            if (!goodMass) continue;
-            if (!goodRapidity) continue;
-            if (!goodCharge) continue;
-            if (!goodTrigger) continue;
-
-            //Good muon selection
-            ptplus = Reco_Muon_pt->at(Reco_Dimuon_muonPlusIndex[j]); //pT of antimuon.
-            ptminus = Reco_Muon_pt->at(Reco_Dimuon_muonMinusIndex[j]); //pT of corresponding muon.
-            etaplus = Reco_Muon_eta->at(Reco_Dimuon_muonPlusIndex[j]); //Pseudorapidity of antimuon.
-            etaminus = Reco_Muon_eta->at(Reco_Dimuon_muonMinusIndex[j]); //Pseudorapidity of corresponding muon.
-            MuPlIsTight = Reco_Muon_isTightCutBased[Reco_Dimuon_muonPlusIndex[j]];
-            MuMiIsTight = Reco_Muon_isTightCutBased[Reco_Dimuon_muonMinusIndex[j]];
-            
-            //Still missing trigger matching selection. "At least one muon matched to L1 and HLT trigger".
-            //L1 matching, HLT matching...
-            //Reco_mu_trig[Reco_mu_size]/I.
-            
-            //Muon ID selection (isGlobal, isTracker, isTight...)
-            //Track quality such as Number of Track Hits NTrkHits and Chi^2/ndf.
-            //Vertex quality with dxy, dz.
-            //Muon isolation. Maybe not needed...?
-
-            bool goodMuPl = (ptplus > ptCutValue)
-                            && (std::abs(etaplus) < EtaCutValue)
-                            && (MuPlIsTight);
-
-            bool goodMuMi = (ptminus > ptCutValue)
-                            && (std::abs(etaminus) < EtaCutValue)
-                            && (MuMiIsTight);
-
-            if (!goodMuPl || !goodMuMi) continue;
-
-            h_invMass->Fill(Reco_Dimuon_invMass->at(j));
-        }
-
-        //Just to check the progress.
-        if (i % (nEvents / 100) == 0){
-
-            int percent = static_cast<int>(100.0 * i / nEvents+0.5);
-
-            std::cout << "\r"
-                      << percent
-                      << "% complete..."
-                      << std::flush;
-        }//
-    
-    }//Exiting event-by-event loop.
-
-    //End of histogram filling.
-    std::cout << "\r100% complete!" << std::endl;
-
-    //Starting histogram statistics calculation.
-    float N_of_RAWcandidates = h_RAWinvMass->GetEntries();
-    float N_of_candidates = h_invMass->GetEntries();
-
-    std::cout << "Number of RAW Z0 candidates = " << N_of_RAWcandidates << "\n" << std::endl; 
-    std::cout << "Number of Z0 candidates = " << N_of_candidates << "\n" << std::endl; 
-
-    float fraction_Kept = (N_of_candidates/N_of_RAWcandidates)*100.;
-
-    std::cout << "Fraction of Z0 candidates kept = " << fraction_Kept << "% \n" << std::endl; 
-
-    TCanvas *myCanvas = new TCanvas("c_ptplmi", "", 700, 600);
-    basicCanvasFormatting(myCanvas);
-    basicHistFormatting(h_RAWinvMass);
-    basicHistFormatting(h_invMass);
-
-    h_RAWinvMass->GetXaxis()->SetTitle("M(#mu^{+}#mu^{-}) [GeV]");
-    h_RAWinvMass->GetYaxis()->SetTitle("N of dimuon candidates [GeV]^{-1}");
-
-    // Histogram formatting
-    h_RAWinvMass->SetLineColor(kBlue + 1);
-    h_RAWinvMass->SetLineWidth(2);
-    h_RAWinvMass->SetFillStyle(0);
-
-    h_invMass->SetLineColor(kOrange + 1);
-    h_invMass->SetLineWidth(2);
-    h_invMass->SetFillStyle(3001);
-
-    //Zooming in for display only.
-    h_RAWinvMass->Draw("HIST");
-    h_invMass->Draw("HIST SAME");
-
-    // Legend
-    TLegend *legend = new TLegend(0.65, 0.70, 0.88, 0.85);
-    legend->SetBorderSize(0);
-    legend->SetFillStyle(0);
-    legend->AddEntry(h_RAWinvMass, "Raw", "l");
-    legend->AddEntry(h_invMass, "Selected", "l");
-    legend->Draw();
-
-    drawLatexText();
-    drawLatexText("#it{Internal}", 0.24, 0.93, 0.042);
-    drawLatexText("PbPb 2024 (5.36 TeV)", 0.65, 0.93, 0.042);        
-
-    TString output = TString(dataset.name) + TString(__func__) + ".png";
-
-    myCanvas->Update();
-    myCanvas->SaveAs(output);
+    std::cout << "Bit " << bit
+              << " (valor " << (1 << bit) << ")"
+              << " : " << count
+              << " ocorrencias\n";
+}
 
     delete chain;
-    delete myCanvas;
 }
 
 //---Histogram formatting
