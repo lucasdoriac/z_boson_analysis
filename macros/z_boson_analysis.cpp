@@ -204,6 +204,7 @@ void plot_pT_spectrum_mupl_vs_mumi_DATA(const Dataset &dataset);
 //void pt_asymmetry();
 //void invMassSpectrum();
 void Make_QA_histograms(const Dataset &dataset);
+void printTriggerValues();
 
 //---main()
 void z_boson_analysis(){
@@ -1407,6 +1408,29 @@ void Make_QA_histograms(const Dataset &dataset){
 
     delete c;
     delete chain;
+}
+
+printTriggerValues(){
+    // Antes do event loop
+    std::map<int, Long64_t> trigBitCount;
+
+    Short_t MuPlIndex = Reco_Dimuon_muonPlusIndex[j];
+        Short_t MuMiIndex = Reco_Dimuon_muonMinusIndex[j];
+
+        Short_t trigPlus  = Reco_Muon_trig[MuPlIndex];
+        Short_t trigMinus = Reco_Muon_trig[MuMiIndex];
+
+        // Percorre os bits
+        for (int bit = 0; bit < 9; ++bit) {
+
+            if (trigPlus & (1 << bit)) {
+                trigBitCount[bit]++;
+            }
+
+            if (trigMinus & (1 << bit)) {
+                trigBitCount[bit]++;
+            }
+        }
 }
 
 //---
