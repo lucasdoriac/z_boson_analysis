@@ -32,8 +32,8 @@ For example: goodCent -> Plot invMassSpectrum & Z yield = N -> goodCent + goodVe
 //---Macro settings
 
 TString plot_extension = ".png"; // ".png" for regular development and ".pdf" for final quality plots
-//std::string BasePath = "/home/lucas/Documents/CMS_analyzes/Z_boson_analysis/"; //IFT
-std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
+std::string BasePath = "/home/lucas/Documents/CMS_analyzes/Z_boson_analysis/"; //IFT
+//std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
 
 // ##############################################################################
 // ##############################################################################
@@ -466,6 +466,7 @@ void Make_invMassSpectrum(const Dataset &dataset){
 
     //New trigger selection 'L2SingleMu12'
     ULong64_t triggerMatch = 1ULL << 7;
+    std::map<int, Long64_t> trigBitCount;
 
     //Second loop, custom cuts.
     for(Long64_t i = 0; i < nEvents; ++i){ //Loop through all EVENTS in the CHAIN.
@@ -482,7 +483,7 @@ void Make_invMassSpectrum(const Dataset &dataset){
         if (!goodVertex) continue;
 
         for(Short_t j = 0; j < Reco_Dimuon_size; ++j){ //Loop through all reco dimuon candidates of event i.
-            
+
             //Good Z selection
             bool goodMass = (Reco_Dimuon_invMass->at(j) > minZ_Mass && Reco_Dimuon_invMass->at(j) < maxZ_Mass);
             bool goodRapidity = (std::abs(Reco_Dimuon_rapidity->at(j)) < RapidityCutValue);
@@ -536,6 +537,10 @@ void Make_invMassSpectrum(const Dataset &dataset){
         }//
     
     }//Exiting event-by-event loop.
+
+    for(int i = 0; i < 9; i++){
+        cout << "Bit " << i << " count: " << trigBitCount[i] << endl;
+    }
 
     //End of histogram filling.
     std::cout << "\r100% complete!" << std::endl;
