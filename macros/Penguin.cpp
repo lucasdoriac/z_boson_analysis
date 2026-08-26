@@ -1,3 +1,11 @@
+/*
+1 - First candidate plot let's do the usual N(\mu+)(pT) and N(\mu-)(pT).
+This is just the distribution of dN/dpT for the individual muon daughters and it's the distribution that
+the theory paper uses to predict the shift in the peak of THESE distributions in the 30-50 GeV region.
+On the bottom panel we will plot R(pT) = N(\mu+)/N(\mu-). We can 
+
+*/
+
 //---Libraries
 #include <TFile.h>
 #include <TDirectory.h>
@@ -25,8 +33,8 @@ using namespace std;
 //---Macro settings
 
 TString plot_extension = ".png"; // ".png" for regular development and ".pdf" for final quality plots
-std::string BasePath = "/home/lucas/Documents/CMS_analyzes/Z_boson_analysis/"; //IFT
-//std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
+//std::string BasePath = "/home/lucas/Documents/CMS_analyzes/Z_boson_analysis/"; //IFT
+std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
 
 // ##############################################################################
 // ##############################################################################
@@ -110,6 +118,9 @@ void drawLatexText(TString latexText = "#bf{CMS}", double x = 0.15, double y = 0
 TH1D* MakeChargeAsymmetryHist(const Dataset& dataset);
 void PlotChargeAsymmetry(TH1D* histPbPb, TH1D* histppRef);
 
+TH1D* MakePtRelativeDiff(const Dataset& dataset);
+void PlotPtRelativeDiff(TH1D* histPbPb, TH1D* histppRef);
+
 void Penguin(){
 
     gROOT->SetBatch(kTRUE);
@@ -127,6 +138,228 @@ void Penguin(){
     std::cout << "ppRef integral = " << histppRef->Integral() << std::endl;
 
     PlotChargeAsymmetry(histPbPb, histppRef);
+
+    histPbPb = MakePtRelativeDiff(datasets[1]);
+    histppRef = MakePtRelativeDiff(datasets[2]);
+    PlotPtRelativeDiff(histPbPb, histppRef);
+}
+
+void PlotPtRelativeDiff(TH1D* histPbPb, TH1D* histppRef){
+
+    TCanvas *c = new TCanvas("c", "Pt Relative Diff", 800, 600);
+    basicCanvasFormatting(c);
+
+    basicHistFormatting(histPbPb);
+    basicHistFormatting(histppRef);
+
+    histPbPb->SetMarkerStyle(20);
+    histPbPb->SetMarkerSize(0.8);
+    histPbPb->SetMarkerColor(kBlue);
+    histPbPb->SetLineColor(kBlue);
+
+    histppRef->SetMarkerStyle(20);
+    histppRef->SetMarkerSize(0.8);
+    histppRef->SetMarkerColor(kRed);
+    histppRef->SetLineColor(kRed);
+
+    histPbPb->Draw("P");
+    histppRef->Draw("P SAME");
+
+    TLegend *leg = new TLegend(0.6, 0.7, 0.88, 0.88);
+    leg->SetBorderSize(0);
+    leg->SetFillStyle(0);
+    leg->AddEntry(histPbPb, "PbPb2024", "l");
+    leg->AddEntry(histppRef, "ppRef2024", "l");
+    leg->Draw();
+
+    drawLatexText("#bf{CMS}", 0.15, 0.93, 0.05);
+    drawLatexText("#it{Internal}", 0.24, 0.93, 0.042);
+    drawLatexText("PbPb 2024 (5.36 TeV) vs ppRef 2024 (5.36 TeV)", 0.65, 0.93, 0.042);
+
+    TString output = "PtRelDifference_PbPb2024_vs_ppRef2024.png";
+    c->Update();
+    c->SaveAs(output);
+
+    delete c;
+}
+
+TH1D* MakePtRelativeDiff(const Dataset& dataset){
+
+    // Load root file.
+    std::string fullPath = dataset.basePath + dataset.filePattern;
+
+    TChain *chain = new TChain(dataset.treeName.c_str());
+    chain->Add(fullPath.c_str());
+
+    std::cout << "> Number of files = " << chain->GetListOfFiles()->GetEntries() << "\n" << std::endl;
+
+    std::cout << "> Opening files " << fullPath << "\n" << std::endl;
+
+    std::cout << "> Running function " << __func__ << " on " << dataset.name << "\n" << std::endl;
+    
+    //Total number of events on Tree.
+    Long64_t nEvents = chain->GetEntries();
+
+    const int MAX_DIMUON = 1000;
+    const int MAX_MUON   = 1000;
+
+    //For now, writing ONLY branches that are relevant to the observable we want to measure.
+
+    //Event-level variables
+    Int_t Centrality;
+    Float_t  zVtx;
+
+    chain->SetBranchAddress("zVtx", &zVtx);
+    if(dataset.system == CollisionSystem::PbPb2024) {
+        chain->SetBranchAddress("Centrality", &Centrality);
+    }
+
+    //Dimuon-level variables
+    Short_t Reco_Dimuon_size;
+
+    Short_t Reco_Dimuon_sign[1000];
+    Short_t Reco_Dimuon_muonPlusIndex[1000];
+    Short_t Reco_Dimuon_muonMinusIndex[1000];
+
+    ULong64_t Reco_Dimuon_trig[1000];
+
+    std::vector<float>* Reco_Dimuon_pt = nullptr;
+    std::vector<float>* Reco_Dimuon_eta = nullptr;
+    std::vector<float>* Reco_Dimuon_rapidity = nullptr;
+    std::vector<float>* Reco_Dimuon_phi = nullptr;
+    std::vector<float>* Reco_Dimuon_invMass = nullptr;
+
+    std::vector<float>* Reco_Dimuon_muonPtDiff = nullptr;
+    std::vector<float>* Reco_Dimuon_muonPtRelDiff = nullptr;
+
+    chain->SetBranchAddress("Reco_Dimuon_size", &Reco_Dimuon_size);
+
+    chain->SetBranchAddress("Reco_Dimuon_sign", Reco_Dimuon_sign);
+
+    chain->SetBranchAddress("Reco_Dimuon_pt", &Reco_Dimuon_pt);
+    chain->SetBranchAddress("Reco_Dimuon_eta", &Reco_Dimuon_eta);
+    chain->SetBranchAddress("Reco_Dimuon_rapidity", &Reco_Dimuon_rapidity);
+    chain->SetBranchAddress("Reco_Dimuon_phi", &Reco_Dimuon_phi);
+    chain->SetBranchAddress("Reco_Dimuon_invMass", &Reco_Dimuon_invMass);
+
+    chain->SetBranchAddress("Reco_Dimuon_muonPtDiff", &Reco_Dimuon_muonPtDiff);
+    chain->SetBranchAddress("Reco_Dimuon_muonPtRelDiff", &Reco_Dimuon_muonPtRelDiff);
+
+    chain->SetBranchAddress("Reco_Dimuon_muonPlusIndex", Reco_Dimuon_muonPlusIndex);
+    chain->SetBranchAddress("Reco_Dimuon_muonMinusIndex", Reco_Dimuon_muonMinusIndex);
+
+    chain->SetBranchAddress("Reco_Dimuon_trig", Reco_Dimuon_trig);
+
+    //Muon-level variables
+    Short_t Reco_Muon_size;
+
+    std::vector<float>* Reco_Muon_pt = nullptr;
+    //std::vector<float>* Reco_Muon_ptErrTrk = nullptr;
+    std::vector<float>* Reco_Muon_eta = nullptr;
+    std::vector<float>* Reco_Muon_phi = nullptr;
+    std::vector<float>* Reco_Muon_mass = nullptr;
+
+    ULong64_t Reco_Muon_trig[1000];
+    Bool_t Reco_Muon_isTightCutBased[1000];
+    
+    chain->SetBranchAddress("Reco_Muon_size", &Reco_Muon_size);
+
+    chain->SetBranchAddress("Reco_Muon_pt", &Reco_Muon_pt);
+    //chain->SetBranchAddress("Reco_Muon_ptErrTrk", &Reco_Muon_ptErrTrk);
+    chain->SetBranchAddress("Reco_Muon_eta", &Reco_Muon_eta);
+    chain->SetBranchAddress("Reco_Muon_phi", &Reco_Muon_phi);
+    chain->SetBranchAddress("Reco_Muon_mass", &Reco_Muon_mass);
+
+    chain->SetBranchAddress("Reco_Muon_trig", Reco_Muon_trig);
+    chain->SetBranchAddress("Reco_Muon_isTightCutBased", Reco_Muon_isTightCutBased);
+    //
+
+    TH1D* hist_Dimuon_muonPtRelDiff = new TH1D("hist_Dimuon_muonPtRelDiff", "", 20, -1., 1.);
+
+    //Event-level cut values.
+    const int minCentrality = 0.0;
+    const int maxCentrality = 180; //Cent max = maxCentrality/2.
+    const double maxZvtx = 15.0;
+
+    //Z-level cut values.
+    const double minZ_Mass = 80.0; 
+    const double maxZ_Mass = 100.0; 
+    const double RapidityCutValue = 2.4;
+
+    //Muon-level cut values.
+    const float EtaCutValue = 2.4;
+    const double ptCutValue = 10.0;
+    bool MuPlIsTight;
+    bool MuMiIsTight;
+
+    //Observables
+    TLorentzVector Z;
+    double ptplus, ptminus;
+    double etaplus, etaminus;
+
+    //New trigger selection 'L2SingleMu12'
+    ULong64_t triggerBit = 1ULL << 7;
+
+    for(Long64_t i = 0; i < nEvents; ++i){//Loop through all EVENTS in the CHAIN.
+
+        chain->GetEntry(i); //Get event i.
+
+        //Good event selection
+        bool goodVertex = (std::abs(zVtx) < maxZvtx);
+        bool goodCent = true;
+
+        if (dataset.system == CollisionSystem::PbPb2024) {
+            goodCent = (Centrality > minCentrality && Centrality < maxCentrality);
+        }
+
+        if (!goodVertex) continue;
+        if (!goodCent) continue;
+
+        for(Short_t j = 0; j < Reco_Dimuon_size; ++j){ //Loop through all reco dimuon candidates of event i.
+            
+            //Good Z selection
+            bool goodMass = (Reco_Dimuon_invMass->at(j) > minZ_Mass && Reco_Dimuon_invMass->at(j) < maxZ_Mass);
+            bool goodRapidity = (std::abs(Reco_Dimuon_rapidity->at(j)) < RapidityCutValue);
+            bool goodCharge = (Reco_Dimuon_sign[j] == 0);
+            
+            bool isTriggerMatched = true;
+
+                if (dataset.system == CollisionSystem::PbPb2024){
+                    isTriggerMatched = (Reco_Dimuon_trig[j]) & triggerBit;
+                }
+
+            if (!goodMass) continue;
+            if (!goodRapidity) continue;
+            if (!goodCharge) continue;
+            if (!isTriggerMatched) continue;
+
+            Short_t muonPlusIndex = Reco_Dimuon_muonPlusIndex[j];
+            Short_t muonMinusIndex = Reco_Dimuon_muonMinusIndex[j];
+
+            //Good muon selection
+            ptplus = Reco_Muon_pt->at(muonPlusIndex); //pT of antimuon.
+            ptminus = Reco_Muon_pt->at(muonMinusIndex); //pT of corresponding muon.
+            etaplus = Reco_Muon_eta->at(muonPlusIndex); //Pseudorapidity of antimuon.
+            etaminus = Reco_Muon_eta->at(muonMinusIndex); //Pseudorapidity of corresponding muon.
+            MuPlIsTight = Reco_Muon_isTightCutBased[muonPlusIndex];
+            MuMiIsTight = Reco_Muon_isTightCutBased[muonMinusIndex];
+            
+            bool goodMuPl = (ptplus > ptCutValue)
+                            && (std::abs(etaplus) < EtaCutValue)
+                            && (MuPlIsTight);
+
+            bool goodMuMi = (ptminus > ptCutValue)
+                            && (std::abs(etaminus) < EtaCutValue)
+                            && (MuMiIsTight);
+
+            if (!goodMuPl || !goodMuMi) continue;
+        
+            //Fill histograms for muon pT distributions
+            hist_Dimuon_muonPtRelDiff->Fill(Reco_Dimuon_muonPtRelDiff->at(j));
+        }
+    }//Exiting event-by-event loop.
+
+    return hist_Dimuon_muonPtRelDiff;
 }
 
 TH1D* MakeChargeAsymmetryHist(const Dataset& dataset){
