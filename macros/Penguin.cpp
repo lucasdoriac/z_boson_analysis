@@ -55,8 +55,8 @@ using namespace std;
 //---Macro settings
 
 TString plot_extension = ".png"; // ".png" for regular development and ".pdf" for final quality plots
-std::string BasePath = "/home/lucas/Documents/CMS_analyzes/Z_boson_analysis/"; //IFT
-//std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
+//std::string BasePath = "/home/lucas/Documents/CMS_analyzes/Z_boson_analysis/"; //IFT
+std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
 
 // ##############################################################################
 // ##############################################################################
@@ -220,6 +220,12 @@ void PlotChargeYields(const Dataset& dataset, TH1D* histMuPlus, TH1D* histMuMinu
 
     histMuPlus->SetLineColor(kRed);
     histMuMinus->SetLineColor(kBlue);
+
+    histMuPlus->GetYaxis()->SetTitle("dN/dp_{T} [GeV]^{-1}");
+
+    //Scaling them before plotting
+    histMuPlus->Scale(1e-2);
+    histMuMinus->Scale(1e-2);
 
     histMuPlus->Draw("HIST");
     histMuMinus->Draw("HIST SAME");
@@ -908,7 +914,7 @@ void basicCanvasFormatting(TCanvas* c, TPad* pad1, TPad* pad2){
     c->SetTicky(1);
 
     // Top pad
-    pad1->SetLeftMargin(0.12);
+    pad1->SetLeftMargin(0.1);
     pad1->SetRightMargin(0.035);
     pad1->SetTopMargin(0.08);
     pad1->SetBottomMargin(0.02);
@@ -917,10 +923,10 @@ void basicCanvasFormatting(TCanvas* c, TPad* pad1, TPad* pad2){
     pad1->SetTicky(1);
     pad1->SetFillColor(0);
     pad1->SetFrameFillColor(0);
-    pad1->SetFrameLineWidth(2);
+    pad1->SetFrameLineWidth(1);
 
     // Bottom pad
-    pad2->SetLeftMargin(0.12);
+    pad2->SetLeftMargin(0.1);
     pad2->SetRightMargin(0.035);
     pad2->SetTopMargin(0.02);
     pad2->SetBottomMargin(0.30);
@@ -929,7 +935,7 @@ void basicCanvasFormatting(TCanvas* c, TPad* pad1, TPad* pad2){
     pad2->SetTicky(1);
     pad2->SetFillColor(0);
     pad2->SetFrameFillColor(0);
-    pad2->SetFrameLineWidth(2);
+    pad2->SetFrameLineWidth(1);
 }
 
 void basicHistFormatting(TH1D* hist, bool isRatio = false){
@@ -949,7 +955,7 @@ void basicHistFormatting(TH1D* hist, bool isRatio = false){
 
         // Main plot
         hist->GetXaxis()->SetTitleSize(0.055);
-        hist->GetYaxis()->SetTitleSize(0.055);
+        hist->GetYaxis()->SetTitleSize(0.038);
 
         hist->GetXaxis()->SetLabelSize(0.0);  // Hide x labels
         hist->GetXaxis()->SetTitleSize(0.0);  // Hide x title
@@ -961,14 +967,14 @@ void basicHistFormatting(TH1D* hist, bool isRatio = false){
     } else {
 
         // Ratio plot
-        hist->GetXaxis()->SetTitleSize(0.12);
-        hist->GetYaxis()->SetTitleSize(0.10);
+        hist->GetXaxis()->SetTitleSize(0.1);
+        hist->GetYaxis()->SetTitleSize(0.1);
 
-        hist->GetXaxis()->SetLabelSize(0.10);
+        hist->GetXaxis()->SetLabelSize(0.09);
         hist->GetYaxis()->SetLabelSize(0.08);
 
         hist->GetXaxis()->SetTitleOffset(1.1);
-        hist->GetYaxis()->SetTitleOffset(0.25);
+        hist->GetYaxis()->SetTitleOffset(0.4);
     }
 
     hist->SetMarkerStyle(20);
