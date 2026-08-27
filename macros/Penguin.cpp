@@ -23,7 +23,8 @@ as well as their difference with respect to the ppRef dataset, i.e. <ΔpT(PbPb)>
 
 4- The last simple observable we can try to check is the charge asymmetry of the muons in each dataset. This is defined as:
     A(X) = (N(mu+) - N(mu-)) / (N(mu+) + N(mu-)).
-Notice that this is a YIELD asymmetry, NOT a pT asymmetry. It is the difference in the number of muons of each charge. (Normalized by the total number of muons?)
+Notice that this is a YIELD asymmetry, NOT a pT asymmetry. It is the difference in the number of muons of each charge.
+(Normalized by the total number of muons?)
 We can calculate A(PbPb) and A(ppRef) and plot them in the same canvas.
 In the bottom panel we can plot the difference in the charge asymmetry between PbPb and ppRef, i.e. ΔA = A(PbPb) - A(ppRef).
 */
@@ -55,8 +56,8 @@ using namespace std;
 //---Macro settings
 
 TString plot_extension = ".png"; // ".png" for regular development and ".pdf" for final quality plots
-std::string BasePath = "/home/lucas/Documents/CMS_analyzes/Z_boson_analysis/"; //IFT
-//std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
+//std::string BasePath = "/home/lucas/Documents/CMS_analyzes/Z_boson_analysis/"; //IFT
+std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
 
 // ##############################################################################
 // ##############################################################################
@@ -203,9 +204,9 @@ void Penguin(){
     //---
 
     //Fourth candidate plot stuff
-    //TH1D* histPbPbChargeAsymmetry = MakeChargeAsymmetryHist(datasets[1]);
-    //TH1D* histppRefChargeAsymmetry = MakeChargeAsymmetryHist(datasets[2]);
-    //PlotChargeAsymmetry(histPbPbChargeAsymmetry, histppRefChargeAsymmetry);
+    TH1D* histPbPbChargeAsymmetry = MakeChargeAsymmetryHist(datasets[1]);
+    TH1D* histppRefChargeAsymmetry = MakeChargeAsymmetryHist(datasets[2]);
+    PlotChargeAsymmetry(histPbPbChargeAsymmetry, histppRefChargeAsymmetry);
     //---
 
     //Clean up
@@ -270,10 +271,10 @@ void PlotDoubleRatio(const Dataset& datasetPbPb, const Dataset& datasetppRef, TH
     histppRefMuPlus->Scale(1.0/histppRefMuPlus->Integral());
     histppRefMuMinus->Scale(1.0/histppRefMuMinus->Integral());
 
-    histPbPbMuPlus->Draw("HIST");
-    histPbPbMuMinus->Draw("HIST SAME");
-    histppRefMuPlus->Draw("HIST SAME");
-    histppRefMuMinus->Draw("HIST SAME");
+    histPbPbMuPlus->Draw("P");
+    histPbPbMuMinus->Draw("P SAME");
+    histppRefMuPlus->Draw("P SAME");
+    histppRefMuMinus->Draw("P SAME");
 
     //Selections and cuts
     drawLatexText("p_{T} > 10 GeV, |#eta| < 2.4", 0.7, 0.35, 0.03);
@@ -375,11 +376,17 @@ void PlotChargeYields(const Dataset& dataset, TH1D* histMuPlus, TH1D* histMuMinu
     double muMinusMean_err = histMuMinus->GetMeanError();
 
     //Histogram formatting
-    histMuPlus->SetLineWidth(2);
-    histMuMinus->SetLineWidth(2);
+    //histMuPlus->SetLineWidth(2);
+    histMuPlus->SetMarkerStyle(25);
+    histMuPlus->SetMarkerSize(0.8);
+    histMuPlus->SetMarkerColor(kRed);
     histMuPlus->SetLineColor(kRed);
+
+    //histMuMinus->SetLineWidth(2);
+    histMuMinus->SetMarkerStyle(25);
+    histMuMinus->SetMarkerSize(0.8);
+    histMuMinus->SetMarkerColor(kBlue);
     histMuMinus->SetLineColor(kBlue);
-    histMuPlus->GetYaxis()->SetTitle("dN/dp_{T} [GeV]^{-1}");
 
     //Scaling them before plotting
     histMuPlus->Scale(1e-2);
@@ -388,9 +395,10 @@ void PlotChargeYields(const Dataset& dataset, TH1D* histMuPlus, TH1D* histMuMinu
     //If you want to normalize the histograms just uncomment the following. Just notice you have to unscale and comment the LatexText of 10^2.
     //histMuPlus->Scale(1.0/histMuPlus->Integral());
     //histMuMinus->Scale(1.0/histMuMinus->Integral());
+    histMuPlus->GetYaxis()->SetTitle("dN/dp_{T} [GeV]^{-1}");
 
-    histMuPlus->Draw("HIST");
-    histMuMinus->Draw("HIST SAME");
+    histMuPlus->Draw("P");
+    histMuMinus->Draw("P SAME");
 
     //Write histogram statistics
     TLegend *info = new TLegend(0.62, 0.62, 0.88, 0.86);
@@ -466,6 +474,8 @@ void PlotChargeYields(const Dataset& dataset, TH1D* histMuPlus, TH1D* histMuMinu
     c->SaveAs(output);
 
     delete histRatio;
+    delete info;
+    delete leg;
     delete line;
     delete c;
 }
@@ -658,6 +668,8 @@ void PlotPtRelativeDiff(TH1D* histPbPb, TH1D* histppRef){
     TPad *pad1 = new TPad("pad1", "pad1", 0, 0.30, 1, 1.0);
     TPad *pad2 = new TPad("pad2", "pad2", 0, 0.00, 1, 0.30);
     basicCanvasFormatting(c, pad1, pad2);
+    pad1->SetLeftMargin(0.13);
+    pad2->SetLeftMargin(0.13);
     pad1->Draw();
     pad2->Draw();
 
@@ -668,10 +680,14 @@ void PlotPtRelativeDiff(TH1D* histPbPb, TH1D* histppRef){
 
     //Calculating histogram statistics
     //Mean of each distribution
-    double PbPbRelDiff = histPbPb->GetMean();
-    double PbPbRelDiff_err = histPbPb->GetMeanError();
-    double ppRefRelDiff = histppRef->GetMean();
-    double ppRefRelDiff_err = histppRef->GetMeanError();
+    double PbPbRelDiff = histPbPb->GetMean()*1e3;
+    double PbPbRelDiff_err = histPbPb->GetMeanError()*1e3;
+    double ppRefRelDiff = histppRef->GetMean()*1e3;
+    double ppRefRelDiff_err = histppRef->GetMeanError()*1e3;
+
+    //We actually need to normalize it.
+    histPbPb->Scale(1./histPbPb->Integral());
+    histppRef->Scale(1./histppRef->Integral());
 
     //Histogram formatting
     histPbPb->SetMarkerStyle(20);
@@ -684,11 +700,15 @@ void PlotPtRelativeDiff(TH1D* histPbPb, TH1D* histppRef){
     histppRef->SetMarkerColor(kRed);
     histppRef->SetLineColor(kRed);
 
+    histPbPb->GetYaxis()->CenterTitle(true);
+    histPbPb->GetYaxis()->SetTitle("1/N dN/d(#Delta p_{T})");
+    histPbPb->GetYaxis()->SetTitleOffset(1.2);
+
     histPbPb->Draw("P");
     histppRef->Draw("P SAME");
 
     //Write histogram statistics
-    TLegend *info = new TLegend(0.62, 0.62, 0.88, 0.86);
+    TLegend *info = new TLegend(0.62, 0.62, 0.84, 0.75);
     info->SetBorderSize(0);
     info->SetFillStyle(0);
     info->SetTextFont(42);
@@ -696,24 +716,24 @@ void PlotPtRelativeDiff(TH1D* histPbPb, TH1D* histppRef){
     info->SetMargin(0.0);
     info->SetEntrySeparation(0.02);
     info->AddEntry((TObject*)nullptr,
-                Form("<#Delta p_{T}>_{PbPb} = %.2f #pm %.2f GeV",
-                        PbPbRelDiff, PbPbRelDiff_err), "");
+                Form("<#Delta p_{T}>_{PbPb} = %.1f #pm %.1f #times 10^{%d} GeV",
+                        PbPbRelDiff, PbPbRelDiff_err, 3), "");
     info->AddEntry((TObject*)nullptr,
-                Form("<#Delta p_{T}>_{ppRef} = %.2f #pm %.2f GeV",
-                        ppRefRelDiff, ppRefRelDiff_err), "");
+                Form("<#Delta p_{T}>_{ppRef} = %.1f #pm %.1f #times 10^{%d} GeV",
+                        ppRefRelDiff, ppRefRelDiff_err, 3), "");
     info->Draw();
 
-    //Since we scaled it.
-    drawLatexText("#times 10^{2}", 0.05, 0.93, 0.042);
     //Selections and cuts
     drawLatexText("p_{T} > 10 GeV, |#eta| < 2.4", 0.7, 0.35, 0.03);
     drawLatexText("|y| < 2.4", 0.7, 0.25, 0.03);
     drawLatexText("80 < M_{#mu#mu} < 100 GeV", 0.7, 0.2, 0.03);
     drawLatexText("Cent. < 90%" , 0.7, 0.3, 0.03);
 
-    TLegend *leg = new TLegend(0.6, 0.7, 0.88, 0.88);
+    TLegend *leg = new TLegend(0.22, 0.65, 0.45, 0.85);
+    basicLegendFormatting(leg);
     leg->SetBorderSize(0);
     leg->SetFillStyle(0);
+    leg->SetTextSize(0.036);
     leg->AddEntry(histPbPb, "PbPb2024", "p");
     leg->AddEntry(histppRef, "ppRef2024", "p");
     leg->Draw();
@@ -732,6 +752,7 @@ void PlotPtRelativeDiff(TH1D* histPbPb, TH1D* histppRef){
     histDiff->SetLineColor(kBlack);
     histDiff->GetYaxis()->SetTitle("#Delta_{PbPb} - #Delta_{ppRef}");
     histDiff->GetXaxis()->SetTitle("#Delta p_{T}");
+    histDiff->GetYaxis()->SetTitleOffset(0.6);
     histDiff->Draw("P");
 
     //A horizontal line just to guide the eye.
@@ -852,7 +873,8 @@ TH1D* MakePtRelativeDiff(const Dataset& dataset){
     chain->SetBranchAddress("Reco_Muon_isTightCutBased", Reco_Muon_isTightCutBased);
     //
 
-    TH1D* hist_muonPtRelDiff = new TH1D("hist_muonPtRelDiff", "", 20, -1., 1.);
+    TString flag = dataset.name;
+    TH1D* hist_muonPtRelDiff = new TH1D("hist_muonPtRelDiff"+flag, "", 20, -1., 1.);
 
     //Event-level cut values.
     const int minCentrality = 0.0;
@@ -1151,45 +1173,123 @@ TH1D* MakeChargeAsymmetryHist(const Dataset& dataset){
 void PlotChargeAsymmetry(TH1D* histPbPb, TH1D* histppRef){
 
     //Plots charge asymmetry histograms of PbPb2024 and ppRef2024 datasets.
-    //The plot will be in the same canvas, with the PbPb2024 histogram in blue and the ppRef2024 histogram in red.
-    //The canvas will have a second pad with the ratio of the two histograms.
+    TCanvas *c = new TCanvas("c", "Charge Asymmetry", 800, 800);
+    TPad *pad1 = new TPad("pad1", "pad1", 0, 0.30, 1, 1.0);
+    TPad *pad2 = new TPad("pad2", "pad2", 0, 0.00, 1, 0.30);
+    basicCanvasFormatting(c, pad1, pad2);
+    pad1->SetLeftMargin(0.13);
+    pad2->SetLeftMargin(0.13);
+    pad1->Draw();
+    pad2->Draw();
 
-    //Still missing pads.
-
-    TCanvas *c = new TCanvas("c", "Charge Asymmetry", 800, 600);
-    //basicCanvasFormatting(c);
+    //Top pannel
+    pad1->cd();
+    basicHistFormatting(histPbPb, false);
+    basicHistFormatting(histppRef, false);
 
     basicHistFormatting(histPbPb);
     basicHistFormatting(histppRef);
 
-    histPbPb->SetMarkerStyle(20);
-    histPbPb->SetMarkerSize(0.8);
-    histPbPb->SetMarkerColor(kBlue);
-    histPbPb->SetLineColor(kBlue);
+    //Calculating histogram statistics
+    double AsymPbPbMean = histPbPb->GetMean();
+    double AsymPbPbMean_err = histPbPb->GetMeanError();
+    double AsymppRefMean = histppRef->GetMean();
+    double AsymppRefMean_err = histppRef->GetMean();
 
-    histppRef->SetMarkerStyle(20);
+    //Normalization
+    histPbPb->Scale(1./histPbPb->Integral());
+    histppRef->Scale(1./histppRef->Integral());
+
+    //Histogram formatting
+    histPbPb->SetMarkerStyle(24);
+    histPbPb->SetMarkerSize(0.8);
+    histPbPb->SetMarkerColor(kBlack);
+    histPbPb->SetLineColor(kBlack);
+
+    histppRef->SetMarkerStyle(24);
     histppRef->SetMarkerSize(0.8);
     histppRef->SetMarkerColor(kRed);
     histppRef->SetLineColor(kRed);
 
+    histPbPb->GetYaxis()->CenterTitle(true);
+    histPbPb->GetYaxis()->SetTitle("A(p_{T})");
+    histPbPb->GetYaxis()->SetTitleOffset(1.2);
+
     histPbPb->Draw("P");
     histppRef->Draw("P SAME");
 
-    TLegend *leg = new TLegend(0.6, 0.7, 0.88, 0.88);
+    //Write histogram statistics
+    TLegend *info = new TLegend(0.62, 0.62, 0.84, 0.75);
+    info->SetBorderSize(0);
+    info->SetFillStyle(0);
+    info->SetTextFont(42);
+    info->SetTextSize(0.035);
+    info->SetMargin(0.0);
+    info->SetEntrySeparation(0.02);
+    info->AddEntry((TObject*)nullptr,
+                Form("<#Delta p_{T}>_{PbPb} = %.1f #pm %.1f GeV",
+                        AsymPbPbMean, AsymPbPbMean_err), "");
+    info->AddEntry((TObject*)nullptr,
+                Form("<#Delta p_{T}>_{ppRef} = %.1f #pm %.1f GeV",
+                        AsymppRefMean, AsymppRefMean_err), "");
+    info->Draw();
+
+    //Selections and cuts
+    drawLatexText("p_{T} > 10 GeV, |#eta| < 2.4", 0.7, 0.35, 0.03);
+    drawLatexText("|y| < 2.4", 0.7, 0.25, 0.03);
+    drawLatexText("80 < M_{#mu#mu} < 100 GeV", 0.7, 0.2, 0.03);
+    drawLatexText("Cent. < 90%" , 0.7, 0.3, 0.03);
+
+    TLegend *leg = new TLegend(0.22, 0.65, 0.45, 0.85);
+    basicLegendFormatting(leg);
     leg->SetBorderSize(0);
     leg->SetFillStyle(0);
-    leg->AddEntry(histPbPb, "PbPb2024", "l");
-    leg->AddEntry(histppRef, "ppRef2024", "l");
+    leg->SetTextSize(0.036);
+    leg->AddEntry(histPbPb, "PbPb2024", "p");
+    leg->AddEntry(histppRef, "ppRef2024", "p");
     leg->Draw();
 
-    drawLatexText("#bf{CMS}", 0.15, 0.93, 0.05);
-    drawLatexText("#it{Internal}", 0.24, 0.93, 0.042);
-    drawLatexText("PbPb 2024 (5.36 TeV) vs ppRef 2024 (5.36 TeV)", 0.65, 0.93, 0.042);
+    pad1->Update();
+
+    //Bottom pannel
+    pad2->cd();
+
+    TH1D* histDiff = (TH1D*)histPbPb->Clone("histDiff");
+    histDiff->Add(histppRef, -1.0);//Subtraction bin-by-bin.
+    
+    basicHistFormatting(histDiff, true);
+    histDiff->SetMarkerStyle(24);
+    histDiff->SetMarkerSize(0.8);
+    histDiff->SetMarkerColor(kBlack);
+    histDiff->SetLineColor(kBlack);
+    histDiff->GetYaxis()->SetTitle("A_{PbPb} - A_{ppRef}");
+    histDiff->GetXaxis()->SetTitle("p_{T} [GeV]");
+    histDiff->GetYaxis()->SetTitleOffset(0.6);
+    histDiff->Draw("P");
+
+    //A horizontal line just to guide the eye.
+    TLine *line = new TLine(histDiff->GetXaxis()->GetXmin(), 0.0, histDiff->GetXaxis()->GetXmax(), 0.0);
+    line->SetLineColor(kMagenta+2);
+    line->SetLineStyle(2);
+    line->SetLineWidth(1);
+    line->Draw("SAME");
+
+    pad2->Update();
+
+    //Back to the canvas
+    c->cd();
+    drawLatexText("#bf{CMS}", 0.12, 0.95, 0.038);
+    drawLatexText("#it{Work in Progress}", 0.2, 0.95, 0.03);
+    drawLatexText("PbPb 2024, ppRef 2024 (5.36 TeV)", 0.52, 0.95, 0.03);
 
     TString output = "ChargeAsymmetry_PbPb2024_vs_ppRef2024.png";
     c->Update();
     c->SaveAs(output);
 
+    delete histPbPb;
+    delete histppRef;
+    delete histDiff;
+    delete line;
     delete c;
 }
 
