@@ -55,9 +55,20 @@ using namespace std;
 
 //---Macro settings
 
-TString plot_extension = ".png"; // ".png" for regular development and ".pdf" for final quality plots
-//std::string BasePath = "/home/lucas/Documents/CMS_analyzes/Z_boson_analysis/"; //IFT
-std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
+std::string plot_extension = ".png"; // ".png" for regular development and ".pdf" for final quality plots
+std::string BasePath = "/home/lucas/Documents/CMS_analyzes/Z_boson_analysis/"; //IFT
+//std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
+
+const int MIN_CENTRALITY = 0.;
+const int MAX_CENTRALITY = 180;
+const double MAX_ZVTX = 15.0;
+
+const double MINZ_MASS = 80.;
+const double MAXZ_MASS = 100.;
+const double RAPIDITYCUTVALUE = 2.4;
+
+const float ETACUTVALUE = 2.4;
+const double PTCUTVALUE = 10.;
 
 // ##############################################################################
 // ##############################################################################
@@ -161,6 +172,7 @@ void basicCanvasFormatting(TCanvas *c, TPad *pad1, TPad *pad2);
 void basicHistFormatting(TH1D *hist, bool isRatio = false);
 void basicLegendFormatting(TLegend *leg);
 void drawLatexText(TString latexText = "#bf{CMS}", double x = 0.15, double y = 0.93, double TextSize = 0.05);
+void PrintBinInfo(TH1D* hist);
 
 //---Main function
 void Penguin(){
@@ -248,19 +260,26 @@ void PlotDoubleRatio(const Dataset& datasetPbPb, const Dataset& datasetppRef, TH
     //We don't need to calculate statistics since we already plotted these distributions before.
 
     //Histogram formatting
-    histPbPbMuPlus->SetLineWidth(2);
-    histPbPbMuMinus->SetLineWidth(2);
-    histppRefMuPlus->SetLineWidth(2);
-    histppRefMuMinus->SetLineWidth(2);
-
+    histPbPbMuPlus->SetMarkerStyle(24);
+    histPbPbMuPlus->SetMarkerSize(0.8);
+    histPbPbMuPlus->SetMarkerColor(kRed);
     histPbPbMuPlus->SetLineColor(kRed);
-    histPbPbMuMinus->SetLineColor(kBlue);
-    histppRefMuPlus->SetLineColor(kMagenta+1);
-    histppRefMuMinus->SetLineColor(kCyan+1);
 
-    //We can change the line styles of the second dataset to distinguish them from the first dataset.
-    histppRefMuPlus->SetLineStyle(2);
-    histppRefMuMinus->SetLineStyle(2);
+    histPbPbMuMinus->SetMarkerStyle(24);
+    histPbPbMuMinus->SetMarkerSize(0.8);
+    histPbPbMuMinus->SetMarkerColor(kBlue);
+    histPbPbMuMinus->SetLineColor(kBlue);
+
+    histppRefMuPlus->SetMarkerStyle(25);
+    histppRefMuPlus->SetMarkerSize(0.8);
+    histppRefMuPlus->SetMarkerColor(kBlack);
+    histppRefMuPlus->SetLineColor(kBlack);
+
+    histppRefMuMinus->SetMarkerStyle(25);
+    histppRefMuMinus->SetMarkerSize(0.8);
+    histppRefMuMinus->SetMarkerColor(kGray+1);
+    histppRefMuMinus->SetLineColor(kGray+1);
+
 
     histPbPbMuPlus->GetYaxis()->SetTitle("1/N dN/dp_{T} [GeV]^{-1}");
     histPbPbMuPlus->GetYaxis()->SetTitleOffset(1.1);
@@ -277,17 +296,17 @@ void PlotDoubleRatio(const Dataset& datasetPbPb, const Dataset& datasetppRef, TH
     histppRefMuMinus->Draw("P SAME");
 
     //Selections and cuts
-    drawLatexText("p_{T} > 10 GeV, |#eta| < 2.4", 0.7, 0.35, 0.03);
-    drawLatexText("Cent. < 90%" , 0.7, 0.3, 0.03);
-    drawLatexText("|y| < 2.4", 0.7, 0.25, 0.03);
-    drawLatexText("80 < M_{#mu#mu} < 100 GeV", 0.7, 0.2, 0.03);
+    drawLatexText(Form("p_{T} > %.0f GeV, |#eta| < %.1f", PTCUTVALUE, ETACUTVALUE), 0.7, 0.35, 0.03);
+    drawLatexText(Form("|y| < %.1f", RAPIDITYCUTVALUE), 0.7, 0.25, 0.03);
+    drawLatexText(Form("%.0f < M_{#mu#mu} < %.0f GeV", MINZ_MASS, MAXZ_MASS), 0.7, 0.2, 0.03);
+    drawLatexText(Form("%d < Cent. < %.0f%%", MIN_CENTRALITY, MAX_CENTRALITY / 2.0), 0.7, 0.3, 0.03);
 
-    TLegend *leg = new TLegend(0.2, 0.65, 0.35, 0.85);
+    TLegend *leg = new TLegend(0.2, 0.58, 0.35, 0.85);
     basicLegendFormatting(leg);
-    leg->AddEntry(histPbPbMuPlus, "PbPb #mu^{+}", "l");
-    leg->AddEntry(histPbPbMuMinus, "PbPb #mu^{-}", "l");
-    leg->AddEntry(histppRefMuPlus, "pp #mu^{+}", "l");
-    leg->AddEntry(histppRefMuMinus, "pp #mu^{-}", "l");
+    leg->AddEntry(histPbPbMuPlus, "PbPb #mu^{+}", "p");
+    leg->AddEntry(histPbPbMuMinus, "PbPb #mu^{-}", "p");
+    leg->AddEntry(histppRefMuPlus, "pp #mu^{+}", "p");
+    leg->AddEntry(histppRefMuMinus, "pp #mu^{-}", "p");
     leg->Draw();
 
     pad1->Update();
@@ -327,7 +346,7 @@ void PlotDoubleRatio(const Dataset& datasetPbPb, const Dataset& datasetppRef, TH
     drawLatexText("PbPb 2024, ppRef 2024 (5.36 TeV)", 0.52, 0.95, 0.03);
 
     //Save
-    TString output = datasetPbPb.name + "_" + datasetppRef.name + "_DoubleRatio.png";
+    TString output = datasetPbPb.name + "_" + datasetppRef.name + "_DoubleRatio" + plot_extension;
     c->Update();
     c->SaveAs(output);
 
@@ -423,10 +442,11 @@ void PlotChargeYields(const Dataset& dataset, TH1D* histMuPlus, TH1D* histMuMinu
     //Since we scaled it.
     drawLatexText("#times 10^{2}", 0.05, 0.93, 0.042);
     //Selections and cuts
-    drawLatexText("p_{T} > 10 GeV, |#eta| < 2.4", 0.7, 0.35, 0.03);
-    drawLatexText("|y| < 2.4", 0.7, 0.25, 0.03);
-    drawLatexText("80 < M_{#mu#mu} < 100 GeV", 0.7, 0.2, 0.03);
-    if(dataset.system == CollisionSystem::PbPb2024) drawLatexText("Cent. < 90%" , 0.7, 0.3, 0.03);
+    drawLatexText(Form("p_{T} > %.0f GeV, |#eta| < %.1f", PTCUTVALUE, ETACUTVALUE), 0.7, 0.35, 0.03);
+    drawLatexText(Form("|y| < %.1f", RAPIDITYCUTVALUE), 0.7, 0.25, 0.03);
+    drawLatexText(Form("%.0f < M_{#mu#mu} < %.0f GeV", MINZ_MASS, MAXZ_MASS), 0.7, 0.2, 0.03);
+    if(dataset.system == CollisionSystem::PbPb2024) drawLatexText(Form("%d < Cent. < %.0f%%", MIN_CENTRALITY, MAX_CENTRALITY / 2.0), 0.7, 0.3, 0.03);
+
 
     TLegend *leg = new TLegend(0.2, 0.7, 0.35, 0.85);
     basicLegendFormatting(leg);
@@ -469,7 +489,7 @@ void PlotChargeYields(const Dataset& dataset, TH1D* histMuPlus, TH1D* histMuMinu
     if (dataset.system == CollisionSystem::PbPb2024) drawLatexText("PbPb 2024 (5.36 TeV)", 0.68, 0.95, 0.03);
     else drawLatexText("ppRef 2024 (5.36 TeV)", 0.68, 0.95, 0.03);
     //Save
-    TString output = dataset.name + "_ChargeYields.png";
+    TString output = dataset.name + "_ChargeYields" + plot_extension;
     c->Update();
     c->SaveAs(output);
 
@@ -572,18 +592,18 @@ void FillChargeYields(const Dataset& dataset, TH1D*& histMuPlus, TH1D*& histMuMi
     //
 
     //Event-level cut values.
-    const int minCentrality = 0.0;
-    const int maxCentrality = 180; //Cent max = maxCentrality/2.
-    const double maxZvtx = 15.0;
+    const int minCentrality = MIN_CENTRALITY;
+    const int maxCentrality = MAX_CENTRALITY; //Cent max = maxCentrality/2.
+    const double maxZvtx = MAX_ZVTX;
 
     //Z-level cut values.
-    const double minZ_Mass = 80.0; 
-    const double maxZ_Mass = 100.0; 
-    const double RapidityCutValue = 2.4;
+    const double minZ_Mass = MINZ_MASS; 
+    const double maxZ_Mass = MAXZ_MASS; 
+    const double RapidityCutValue = RAPIDITYCUTVALUE;
 
     //Muon-level cut values.
-    const float EtaCutValue = 2.4;
-    const double ptCutValue = 10.0;
+    const float EtaCutValue = ETACUTVALUE;
+    const double ptCutValue = PTCUTVALUE;
     bool MuPlIsTight;
     bool MuMiIsTight;
 
@@ -708,28 +728,28 @@ void PlotPtRelativeDiff(TH1D* histPbPb, TH1D* histppRef){
     histppRef->Draw("P SAME");
 
     //Write histogram statistics
-    TLegend *info = new TLegend(0.62, 0.62, 0.84, 0.75);
+    TLegend *info = new TLegend(0.62, 0.75, 0.84, 0.85);
     info->SetBorderSize(0);
     info->SetFillStyle(0);
     info->SetTextFont(42);
-    info->SetTextSize(0.035);
+    info->SetTextSize(0.03);
     info->SetMargin(0.0);
     info->SetEntrySeparation(0.02);
     info->AddEntry((TObject*)nullptr,
-                Form("<#Delta p_{T}>_{PbPb} = %.1f #pm %.1f #times 10^{%d} GeV",
+                Form("#LT #Delta p_{T}#GT_{PbPb} = %.1f #pm %.1f #times 10^{%d} GeV",
                         PbPbRelDiff, PbPbRelDiff_err, 3), "");
     info->AddEntry((TObject*)nullptr,
-                Form("<#Delta p_{T}>_{ppRef} = %.1f #pm %.1f #times 10^{%d} GeV",
+                Form("#LT #Delta p_{T}#GT_{ppRef} = %.1f #pm %.1f #times 10^{%d} GeV",
                         ppRefRelDiff, ppRefRelDiff_err, 3), "");
     info->Draw();
 
     //Selections and cuts
-    drawLatexText("p_{T} > 10 GeV, |#eta| < 2.4", 0.7, 0.35, 0.03);
-    drawLatexText("|y| < 2.4", 0.7, 0.25, 0.03);
-    drawLatexText("80 < M_{#mu#mu} < 100 GeV", 0.7, 0.2, 0.03);
-    drawLatexText("Cent. < 90%" , 0.7, 0.3, 0.03);
+    drawLatexText(Form("p_{T} > %.0f GeV, |#eta| < %.1f", PTCUTVALUE, ETACUTVALUE), 0.7, 0.35, 0.03);
+    drawLatexText(Form("|y| < %.1f", RAPIDITYCUTVALUE), 0.7, 0.25, 0.03);
+    drawLatexText(Form("%.0f < M_{#mu#mu} < %.0f GeV", MINZ_MASS, MAXZ_MASS), 0.7, 0.2, 0.03);
+    drawLatexText(Form("%d < Cent. < %.0f%%", MIN_CENTRALITY, MAX_CENTRALITY / 2.0), 0.7, 0.3, 0.03);
 
-    TLegend *leg = new TLegend(0.22, 0.65, 0.45, 0.85);
+    TLegend *leg = new TLegend(0.22, 0.65, 0.45, 0.81);
     basicLegendFormatting(leg);
     leg->SetBorderSize(0);
     leg->SetFillStyle(0);
@@ -771,7 +791,7 @@ void PlotPtRelativeDiff(TH1D* histPbPb, TH1D* histppRef){
     drawLatexText("PbPb 2024, ppRef 2024 (5.36 TeV)", 0.52, 0.95, 0.03);
 
     //Save
-    TString output = "PbPb_ppRef_RelativeDiff.png";
+    TString output = "PbPb_ppRef_RelativeDiff" + plot_extension;
     c->Update();
     c->SaveAs(output);
 
@@ -877,18 +897,18 @@ TH1D* MakePtRelativeDiff(const Dataset& dataset){
     TH1D* hist_muonPtRelDiff = new TH1D("hist_muonPtRelDiff"+flag, "", 20, -1., 1.);
 
     //Event-level cut values.
-    const int minCentrality = 0.0;
-    const int maxCentrality = 180; //Cent max = maxCentrality/2.
-    const double maxZvtx = 15.0;
+    const int minCentrality = MIN_CENTRALITY;
+    const int maxCentrality = MAX_CENTRALITY; //Cent max = maxCentrality/2.
+    const double maxZvtx = MAX_ZVTX;
 
     //Z-level cut values.
-    const double minZ_Mass = 80.0; 
-    const double maxZ_Mass = 100.0; 
-    const double RapidityCutValue = 2.4;
+    const double minZ_Mass = MINZ_MASS; 
+    const double maxZ_Mass = MAXZ_MASS; 
+    const double RapidityCutValue = RAPIDITYCUTVALUE;
 
     //Muon-level cut values.
-    const float EtaCutValue = 2.4;
-    const double ptCutValue = 10.0;
+    const float EtaCutValue = ETACUTVALUE;
+    const double ptCutValue = PTCUTVALUE;
     bool MuPlIsTight;
     bool MuMiIsTight;
 
@@ -1057,18 +1077,18 @@ TH1D* MakeChargeAsymmetryHist(const Dataset& dataset){
     TH1D* histMuMi = new TH1D("histMuMi", "", 100, 0., 100.);
 
     //Event-level cut values.
-    const int minCentrality = 0.0;
-    const int maxCentrality = 180; //Cent max = maxCentrality/2.
-    const double maxZvtx = 15.0;
+    const int minCentrality = MIN_CENTRALITY;
+    const int maxCentrality = MAX_CENTRALITY; //Cent max = maxCentrality/2.
+    const double maxZvtx = MAX_ZVTX;
 
     //Z-level cut values.
-    const double minZ_Mass = 80.0; 
-    const double maxZ_Mass = 100.0; 
-    const double RapidityCutValue = 2.4;
+    const double minZ_Mass = MINZ_MASS; 
+    const double maxZ_Mass = MAXZ_MASS; 
+    const double RapidityCutValue = RAPIDITYCUTVALUE;
 
     //Muon-level cut values.
-    const float EtaCutValue = 2.4;
-    const double ptCutValue = 10.0;
+    const float EtaCutValue = ETACUTVALUE;
+    const double ptCutValue = PTCUTVALUE;
     bool MuPlIsTight;
     bool MuMiIsTight;
 
@@ -1140,27 +1160,18 @@ TH1D* MakeChargeAsymmetryHist(const Dataset& dataset){
         }
     }//Exiting event-by-event loop.
 
-    // Create a new histogram for charge asymmetry
-    TString histName = "hist_ChargeAsymmetry_" + dataset.name;
-    TH1D* hist_ChargeAsymmetry = new TH1D(histName, "Charge Asymmetry",
-                                            histMuPl->GetNbinsX(), 
-                                            histMuPl->GetXaxis()->GetXmin(), 
-                                            histMuPl->GetXaxis()->GetXmax());
+    //Create a new histogram for charge asymmetry
+    TH1D* hist_ChargeAsymmetry = (TH1D*)histMuPl->Clone("hist_ChargeAsymmetry");
 
-    hist_ChargeAsymmetry->SetTitle("Charge Asymmetry");
-    hist_ChargeAsymmetry->GetYaxis()->SetTitle("Asymmetry (N_{+} - N_{-}) / (N_{+} + N_{-})");
-    hist_ChargeAsymmetry->GetXaxis()->SetTitle(histMuPl->GetXaxis()->GetTitle());
-
-    // Calculate the asymmetry for each bin
-    for(int i = 1; i <= histMuPl->GetNbinsX(); ++i){
+    for (int i = 1; i <= histMuPl->GetNbinsX(); i++) {
         
-        double N_plus = histMuPl->GetBinContent(i);
-        double N_minus = histMuMi->GetBinContent(i);
-        double asymmetry = 0.0;
+        double NPlus  = histMuPl->GetBinContent(i);
+        double NMinus = histMuMi->GetBinContent(i);
+        double Asymmetry = 0.0;
         
-        if ((N_plus + N_minus) != 0) asymmetry = (N_plus - N_minus) / (N_plus + N_minus);
+        if (NPlus + NMinus != 0) Asymmetry = (NPlus - NMinus) / (NPlus + NMinus);
         
-        hist_ChargeAsymmetry->SetBinContent(i, asymmetry);
+        hist_ChargeAsymmetry->SetBinContent(i, Asymmetry);
     }
     
     delete histMuPl;
@@ -1194,11 +1205,11 @@ void PlotChargeAsymmetry(TH1D* histPbPb, TH1D* histppRef){
     double AsymPbPbMean = histPbPb->GetMean();
     double AsymPbPbMean_err = histPbPb->GetMeanError();
     double AsymppRefMean = histppRef->GetMean();
-    double AsymppRefMean_err = histppRef->GetMean();
+    double AsymppRefMean_err = histppRef->GetMeanError();
 
     //Normalization
-    histPbPb->Scale(1./histPbPb->Integral());
-    histppRef->Scale(1./histppRef->Integral());
+    //histPbPb->Scale(1./histPbPb->Integral());
+    //histppRef->Scale(1./histppRef->Integral());
 
     //Histogram formatting
     histPbPb->SetMarkerStyle(24);
@@ -1219,28 +1230,22 @@ void PlotChargeAsymmetry(TH1D* histPbPb, TH1D* histppRef){
     histppRef->Draw("P SAME");
 
     //Write histogram statistics
-    TLegend *info = new TLegend(0.62, 0.62, 0.84, 0.75);
+    TLegend *info = new TLegend(0.2, 0.12, 0.28, 0.24);
     info->SetBorderSize(0);
     info->SetFillStyle(0);
     info->SetTextFont(42);
-    info->SetTextSize(0.035);
+    info->SetTextSize(0.03);
     info->SetMargin(0.0);
     info->SetEntrySeparation(0.02);
     info->AddEntry((TObject*)nullptr,
-                Form("<#Delta p_{T}>_{PbPb} = %.1f #pm %.1f GeV",
+                Form("#LT A_{PbPb} #GT = %.1f #pm %.1f GeV",
                         AsymPbPbMean, AsymPbPbMean_err), "");
     info->AddEntry((TObject*)nullptr,
-                Form("<#Delta p_{T}>_{ppRef} = %.1f #pm %.1f GeV",
+                Form("#LT A_{ppRef} #GT = %.1f #pm %.1f GeV",
                         AsymppRefMean, AsymppRefMean_err), "");
     info->Draw();
 
-    //Selections and cuts
-    drawLatexText("p_{T} > 10 GeV, |#eta| < 2.4", 0.7, 0.35, 0.03);
-    drawLatexText("|y| < 2.4", 0.7, 0.25, 0.03);
-    drawLatexText("80 < M_{#mu#mu} < 100 GeV", 0.7, 0.2, 0.03);
-    drawLatexText("Cent. < 90%" , 0.7, 0.3, 0.03);
-
-    TLegend *leg = new TLegend(0.22, 0.65, 0.45, 0.85);
+    TLegend *leg = new TLegend(0.42, 0.71, 0.62, 0.85);
     basicLegendFormatting(leg);
     leg->SetBorderSize(0);
     leg->SetFillStyle(0);
@@ -1282,7 +1287,7 @@ void PlotChargeAsymmetry(TH1D* histPbPb, TH1D* histppRef){
     drawLatexText("#it{Work in Progress}", 0.2, 0.95, 0.03);
     drawLatexText("PbPb 2024, ppRef 2024 (5.36 TeV)", 0.52, 0.95, 0.03);
 
-    TString output = "ChargeAsymmetry_PbPb2024_vs_ppRef2024.png";
+    TString output = "ChargeAsymmetry_PbPb2024_vs_ppRef2024" + plot_extension;
     c->Update();
     c->SaveAs(output);
 
@@ -1375,7 +1380,7 @@ void basicLegendFormatting(TLegend* leg){
     leg->SetBorderSize(0);
     leg->SetFillStyle(0);
     leg->SetTextFont(42);
-    leg->SetTextSize(0.048);
+    leg->SetTextSize(0.044);
     leg->SetMargin(0.2);
     leg->SetEntrySeparation(0.04);
 }
@@ -1388,4 +1393,22 @@ latex.SetTextSize(TextSize);
 latex.SetTextFont(42);       // Helvetica
 latex.SetTextAlign(11);      // Left-top aligned.
 latex.DrawLatex(x, y, latexText);
+}
+
+void PrintBinInfo(TH1D* hist)
+{
+    std::cout << "\n=== Histogram: " << hist->GetName() << " ===\n";
+
+    for (int bin = 40; bin <= 43; ++bin) {
+
+        double content = hist->GetBinContent(bin);
+        double error   = hist->GetBinError(bin);
+
+        std::cout << "Bin " << bin << "\n";
+        std::cout << "  Content      = " << content << "\n";
+        std::cout << "  ROOT error   = " << error << "\n";
+        std::cout << "  sqrt(N)      = " << std::sqrt(content) << "\n";
+        std::cout << "  Error^2      = " << error * error << "\n";
+        std::cout << std::endl;
+    }
 }
