@@ -6,6 +6,15 @@
 std::string BasePath = "/home/lucas/Documents/CMS_analyzes/Z_boson_analysis/"; //IFT
 //std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
 
+//Map:
+/*
+datasets[0] = PbPb2023_Data
+datasets[1] = PbPb2024_Data
+datasets[2] = ppRef2024_Data
+datasets[3] = PbPb2024_MC
+datasets[4] = ppRef2024_MC
+*/
+
 //---Enumerates
 enum class SampleType {
     Data,
@@ -25,7 +34,7 @@ struct Dataset {
     CollisionSystem system;
     std::string treeName;
     std::string filePattern;
-    std::string basePath;
+    std::string path;
 };
 
 Dataset datasets[] = {
