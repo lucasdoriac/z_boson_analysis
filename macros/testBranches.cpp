@@ -33,9 +33,14 @@ datasets[3] = PbPb2024_MC
 datasets[4] = ppRef2024_MC
 */
 
+void ApplyGoodSelection(const Dataset &dataset);
+
 void testBranches(){
 
-    Dataset dataset = datasets[1]; //PbPb2024_Data
+    ApplyGoodSelection(datasets[1]); //PbPb2024_Data
+}
+
+void ApplyGoodSelection(const Dataset &dataset){
 
     //Load root file.
     std::string fullPath = dataset.path + dataset.filePattern;
@@ -52,6 +57,7 @@ void testBranches(){
     //Total number of events on Tree.
     Long64_t nEvents = chain->GetEntries();    
 
+    //Initialize the PbPb branches.
     SetPbPbBranches PbPb2024;
     PbPb2024.SetBranches(chain);
 
@@ -147,4 +153,5 @@ void testBranches(){
     }//End of event loop.
 
     std::cout << "> Number of good dimuon candidates = " << goodDimuonCount << std::endl;
+
 }
