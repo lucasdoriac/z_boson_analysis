@@ -27,6 +27,11 @@ Notice that this is a YIELD asymmetry, NOT a pT asymmetry. It is the difference 
 (Normalized by the total number of muons?)
 We can calculate A(PbPb) and A(ppRef) and plot them in the same canvas.
 In the bottom panel we can plot the difference in the charge asymmetry between PbPb and ppRef, i.e. ΔA = A(PbPb) - A(ppRef).
+
+-------------------------------------
+After doing the four candidate plots, now we move to another plot that gives a centrality-dependent observable.
+
+5- 
 */
 
 //---Libraries
@@ -149,6 +154,7 @@ struct TmpHistStruct {
     TH1D* histMuMinus;
     TH1D* histRatio;
 };
+
 
 //---Common functions
 void FillChargeYields(const Dataset& dataset, TH1D*& histMuPlus, TH1D*& histMuMinus);
