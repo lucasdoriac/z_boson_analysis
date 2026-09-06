@@ -3,6 +3,7 @@
 
 # Plots and figures
 *.png
+*.pdf
 
 # Temporary / generated files
 
@@ -25,3 +26,4 @@ MC/
 # Private CMS material / plots / results
 private/
 private_plots/
+*.txt
