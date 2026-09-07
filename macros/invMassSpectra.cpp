@@ -32,8 +32,8 @@ For example: goodCent -> Plot invMassSpectrum & Z yield = N -> goodCent + goodVe
 //---Macro settings
 
 TString plot_extension = ".png"; // ".png" for regular development and ".pdf" for final quality plots
-std::string BasePath = "/home/lucas/Documents/CMS_analyzes/Z_boson_analysis/"; //IFT
-//std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
+//std::string BasePath = "/home/lucas/Documents/CMS_analyzes/Z_boson_analysis/"; //IFT
+std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
 
 // ##############################################################################
 // ##############################################################################
@@ -488,11 +488,13 @@ void Make_invMassSpectrum(const Dataset &dataset){
             bool goodMass = (Reco_Dimuon_invMass->at(j) > minZ_Mass && Reco_Dimuon_invMass->at(j) < maxZ_Mass);
             bool goodRapidity = (std::abs(Reco_Dimuon_rapidity->at(j)) < RapidityCutValue);
             bool goodCharge = (Reco_Dimuon_sign[j] == 0);
+            bool goodVtxProb = (Reco_Dimuon_vtxProb[j] > 0.02);
             bool goodTrigger = (Reco_Dimuon_trig[j]) & triggerMatch;
 
             if (!goodMass) continue;
             if (!goodRapidity) continue;
             if (!goodCharge) continue;
+            if (!goodVtxProb) continue;
             if (!goodTrigger) continue;
 
             //Good muon selection
@@ -537,10 +539,6 @@ void Make_invMassSpectrum(const Dataset &dataset){
         }//
     
     }//Exiting event-by-event loop.
-
-    for(int i = 0; i < 9; i++){
-        cout << "Bit " << i << " count: " << trigBitCount[i] << endl;
-    }
 
     //End of histogram filling.
     std::cout << "\r100% complete!" << std::endl;
