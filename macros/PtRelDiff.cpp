@@ -32,8 +32,8 @@ using namespace std;
 
 //---Macro settings
 
-std::string plot_extension = ".pdf"; // ".png" for regular development and ".pdf" for final quality plots
-std::string BasePath = "/home/lucas/Documents/CMS_analyzes/Z_boson_analysis/"; //IFT
+std::string plot_extension = ".png"; // ".png" for regular development and ".pdf" for final quality plots
+std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
 //std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
 
 const double MAX_ZVTX = 15.0;
@@ -118,19 +118,19 @@ Dataset datasets[] = {
 };
 
 //Centrality bins
-std::vector<std::pair<int,int>> centralityBins = {
+/*std::vector<std::pair<int,int>> centralityBins = {
     {0, 10},
     {10, 20},
     {20, 30},
     {30, 100},
-};
+};*/
 
-/*std::vector<std::pair<int, int>> centralityBins = {
+std::vector<std::pair<int, int>> centralityBins = {
     {0, 10},
     {10, 30},
     {30, 50},
     {50, 100},
-};*/
+};
 
 //Reference values.
 double ppRef_DeltaPtMean;

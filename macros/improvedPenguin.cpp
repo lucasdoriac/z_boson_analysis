@@ -112,8 +112,8 @@ using namespace std;
 //---Macro settings
 
 std::string plot_extension = ".png"; // ".png" for regular development and ".pdf" for final quality plots
-//std::string BasePath = "/home/lucas/Documents/CMS_analyzes/Z_boson_analysis/"; //IFT
-std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
+std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
+//std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
 
 const double MAX_ZVTX = 15.0;
 const int MIN_CENTRALITY = 0;
@@ -204,21 +204,20 @@ std::vector<double> DeltaMean_pT;
 std::vector<double> DeltaMean_err_pT;
 
 //Centrality bins for PbPb2024 data
-/*std::vector<std::pair<double, double>> CentralitySet = {
+std::vector<std::pair<int, int>> CentralitySet = {
     {0., 10.},
     {10., 30.},
     {30., 50.},
     {50., 70.},
     {70., 100.}
-};*/
-
-std::vector<std::pair<double, double>> CentralitySet = {
-    {0., 10.},
-    {10., 20.},
-    {20., 30.},
-    {30., 40.},
-    {40., 100.}
 };
+
+/*std::vector<std::pair<int, int>> CentralitySet = {
+    {0, 10},
+    {10, 20},
+    {20, 30},
+    {30, 100},
+};*/
 
 std::vector<std::pair<double, double>> pT_sectors = {
     {20., 30.},
@@ -229,10 +228,10 @@ std::vector<std::pair<double, double>> pT_sectors = {
 };
 
 //---Function declarations
-std::array<double, 3> CalculatePeakAndMeanDiff(const Dataset& dataset, const std::pair<double, double>& centRange, TFile* outputFile = nullptr);
+std::array<double, 3> CalculatePeakAndMeanDiff(const Dataset& dataset, const std::pair<int, int>& centRange, TFile* outputFile = nullptr);
 void PlotDeltaPeakAndMeanDiff();
-void CalculateAsymmetryPt(TFile* outputFile, const std::vector<std::pair<double, double>>& centRanges, const std::vector<std::pair<double, double>>& pTRanges);
-void CalculateDeltaPt();
+void CalculateAsymmetryPt(TFile* outputFile, const std::vector<std::pair<int, int>>& centRanges, const std::vector<std::pair<double, double>>& pTRanges);
+void PlotFinalAsymmetry(TFile* outputFile, const std::vector<std::pair<int, int>>& centRanges);
 
 //---Histogram formatting
 void basicCanvasFormatting(TCanvas *c, TPad *pad1, TPad *pad2);
@@ -281,9 +280,8 @@ void improvedPenguin(){
                 << std::endl;
     }*/
 
-    //CalculateAsymmetryPt(outputFile, CentralitySet, pT_sectors);
-
-    outputFile->Write();
+    CalculateAsymmetryPt(outputFile, CentralitySet, pT_sectors);
+    PlotFinalAsymmetry(outputFile, CentralitySet);
 
     // Clean up
     outputFile->Close();
@@ -293,77 +291,231 @@ void improvedPenguin(){
     delete outputFile;
 }
 
-/*void CalculateAsymmetryPt(TFile* outputFile, const std::vector<std::pair<double, double>>& centRanges, const std::vector<std::pair<double, double>>& pTRanges){
+void PlotFinalAsymmetry(TFile* outputFile, const std::vector<std::pair<int, int>>& centRanges){
+
+    TGraphErrors* grFinalAsymmetry =
+        new TGraphErrors(centRanges.size());
+
+        grFinalAsymmetry->SetName("grFinalAsymmetry");
+        grFinalAsymmetry->SetTitle(
+            ";Centrality (%);#LT#Delta A#GT"
+        );
+
+    for (size_t cBin = 0; cBin < centRanges.size(); ++cBin) {
+
+        TString histName = Form(
+            "DeltaAsym_PbPb2024_%d_%d",
+            centRanges[cBin].first,
+            centRanges[cBin].second
+        );
+
+        TH1D* hDeltaAsymmetry =
+            (TH1D*)outputFile->Get(histName);
+
+        if (!hDeltaAsymmetry) {
+            std::cerr << "Could not find histogram: "
+                      << histName << std::endl;
+            continue;
+        }
+
+        double fitMin = 20.0;
+        double fitMax = 60.0;
+
+        // Constant fit:
+        // Delta A(pT) = constant
+        TF1* constantFit = new TF1(
+            Form("constantFit_%d_%d",
+                 centRanges[cBin].first,
+                 centRanges[cBin].second),
+            "pol0",
+            fitMin,
+            fitMax
+        );
+
+        // Fit histogram
+        hDeltaAsymmetry->Fit(constantFit, "RQ");
+
+        // --------------------------------------------------
+        // Extract <Delta A>
+        // --------------------------------------------------
+
+        double meanDeltaA = constantFit->GetParameter(0);
+        double meanError  = constantFit->GetParError(0);
+
+        // --------------------------------------------------
+        // Centrality midpoint and width
+        // --------------------------------------------------
+
+        double centMin = centRanges[cBin].first;
+        double centMax = centRanges[cBin].second;
+
+        double centMid   = 0.5 * (centMin + centMax);
+        double centWidth = 0.5 * (centMax - centMin);
+
+        // --------------------------------------------------
+        // Add point to TGraphErrors
+        // --------------------------------------------------
+
+        grFinalAsymmetry->SetPoint(
+            cBin,
+            centMid,
+            meanDeltaA
+        );
+
+        grFinalAsymmetry->SetPointError(
+            cBin,
+            centWidth,
+            meanError
+        );
+
+        // --------------------------------------------------
+        // Print result
+        // --------------------------------------------------
+
+        std::cout << "Centrality "
+                  << centMin << "-" << centMax << "% : "
+                  << "<Delta A> = "
+                  << meanDeltaA << " +/- "
+                  << meanError
+                  << std::endl;
+                
+    }
+
+        // --------------------------------------------------
+        // Draw final graph
+        // --------------------------------------------------
+
+        TCanvas* canvas = new TCanvas(
+            "cFinalAsymmetry",
+            "Final Delta A",
+            800,
+            600
+        );
+        canvas->SetLeftMargin(0.13);
+        canvas->SetBottomMargin(0.15);
+        canvas->SetRightMargin(0.05);
+        canvas->SetTopMargin(0.05);
+        canvas->SetTicks(1, 1);
+
+        //Formatting
+        grFinalAsymmetry->GetXaxis()->CenterTitle(false);
+        grFinalAsymmetry->GetYaxis()->CenterTitle(false);
+        grFinalAsymmetry->GetXaxis()->SetTitleOffset(.9);
+        grFinalAsymmetry->GetYaxis()->SetTitleOffset(1.);
+        grFinalAsymmetry->GetXaxis()->SetTitleFont(42);
+        grFinalAsymmetry->GetYaxis()->SetTitleFont(42);
+        grFinalAsymmetry->GetXaxis()->SetLabelFont(42);
+        grFinalAsymmetry->GetYaxis()->SetLabelFont(42);
+        grFinalAsymmetry->GetXaxis()->SetTitleSize(0.055);
+        grFinalAsymmetry->GetYaxis()->SetTitleSize(0.055);
+        grFinalAsymmetry->GetXaxis()->SetLabelSize(0.042);
+        grFinalAsymmetry->GetYaxis()->SetLabelSize(0.042);
+        grFinalAsymmetry->SetTitle("");
+
+        grFinalAsymmetry->SetMarkerStyle(21);
+        grFinalAsymmetry->SetMarkerSize(1.1);
+        grFinalAsymmetry->SetLineWidth(2);
+        grFinalAsymmetry->SetLineColor(kRed+1);
+        grFinalAsymmetry->SetMarkerColor(kRed+1);
+
+        grFinalAsymmetry->Draw("AP");
+
+        drawLatexText("#bf{CMS}", 0.15, 0.93, 0.05);
+        drawLatexText("Work in Progress", 0.3, 0.93, 0.05);
+        drawLatexText("PbPb #sqrt{#it{s}_{NN}} = 5.36 TeV, 2024 Data", 0.55, 0.93, 0.05);
+
+        // --------------------------------------------------
+        // Horizontal zero line
+        // --------------------------------------------------
+
+        double xMin = centRanges.front().first;
+        double xMax = centRanges.back().second;
+
+        TLine* zeroLine = new TLine(
+            xMin, 0.,
+            xMax, 0.
+        );
+
+        zeroLine->SetLineStyle(2);
+        zeroLine->SetLineWidth(2);
+        zeroLine->Draw("same");
+
+        // --------------------------------------------------
+        // Save plot
+        // --------------------------------------------------
+
+        canvas->SaveAs(
+            "FinalDeltaAsymmetry_vs_Centrality.png"
+        );
+
+        // --------------------------------------------------
+        // Save graph to ROOT file
+        // --------------------------------------------------
+
+        outputFile->cd();
+        grFinalAsymmetry->Write();
+}
+
+
+void CalculateAsymmetryPt(TFile* outputFile, const std::vector<std::pair<int, int>>& centRanges, const std::vector<std::pair<double, double>>& pTRanges){
 
     TH1D* histMuPlusRef = (TH1D*)outputFile->Get("histMuPlus_ppRef2024_Data_0_100");
     TH1D* histMuMinusRef = (TH1D*)outputFile->Get("histMuMinus_ppRef2024_Data_0_100");
+
+    TH1D* hAsymmetryRef = new TH1D("ReferenceAsym", "Reference Asymmetry", histMuPlusRef->GetNbinsX(), 
+                    histMuPlusRef->GetXaxis()->GetXmin(),
+                    histMuPlusRef->GetXaxis()->GetXmax());
+
+    //Get reference values
+    for (int i = 1; i <= histMuPlusRef->GetNbinsX(); ++i) {
+
+        double NplusRef  = histMuPlusRef->GetBinContent(i);
+        double NminusRef = histMuMinusRef->GetBinContent(i);
+
+        double errPlusRef  = histMuPlusRef->GetBinError(i);
+        double errMinusRef = histMuMinusRef->GetBinError(i);
+
+        double denominatorRef = NplusRef + NminusRef;
+
+        if (denominatorRef > 0.) {
+
+            double asymmetryRef = (NplusRef - NminusRef) / denominatorRef;
+            double asymmetryErrorRef = 2./(denominatorRef*denominatorRef)*sqrt( pow(NminusRef*errPlusRef,2) + pow(NplusRef*errMinusRef,2));
+
+            hAsymmetryRef->SetBinContent(i, asymmetryRef);
+            hAsymmetryRef->SetBinError(i, asymmetryErrorRef);
+
+        }
+
+    }
+    hAsymmetryRef->Write();
 
     //Get muon charge yield histograms from outputFile.
     for (size_t cBin = 0; cBin < centRanges.size(); ++cBin) {
 
         TString namePlus = Form(
-            "histMuPlus_PbPb2024_Data_%.0f_%.0f",
+            "histMuPlus_PbPb2024_Data_%d_%d",
             centRanges[cBin].first, centRanges[cBin].second
         );
 
         TString nameMinus = Form(
-            "histMuMinus_PbPb2024_Data_%.0f_%.0f",
+            "histMuMinus_PbPb2024_Data_%d_%d",
             centRanges[cBin].first, centRanges[cBin].second
         );
 
         TH1D* histMuPlus = (TH1D*)outputFile->Get(namePlus);
         TH1D* histMuMinus = (TH1D*)outputFile->Get(nameMinus);
-
-        //Calculate asymmetry \delta A = A(pT,PbPb) - A(ppRef), where A = (N(mu+) - N(mu-)) / (N(mu+) + N(mu-)) for each centrality bin.
-        
-        //Get reference values
-        for (int i = 1; i <= histMuPlusRef->GetNbinsX(); ++i) {
-
-            double NplusRef  = histMuPlusRef->GetBinContent(i);
-            double NminusRef = histMuMinusRef->GetBinContent(i);
-
-            double errPlusRef  = histMuPlusRef->GetBinError(i);
-            double errMinusRef = histMuMinusRef->GetBinError(i);
-
-            double denominatorRef = NplusRef + NminusRef;
-
-            if (denominatorRef > 0.) {
-
-                double asymmetryRef = (NplusRef - NminusRef) / denominatorRef;
-                double asymmetryErrorRef = 2./(denominatorRef*denominatorRef)*sqrt( pow(NminusRef*errPlusRef,2) + pow(NplusRef*errMinusRef,2));
-
-                TH1D* hAsymmetryRef = new TH1D("ReferenceAsym", histMuPlusRef->GetNbinsX(), 
-                    histMuPlusRef->GetXaxis()->GetXmin(),
-                    histMuPlusRef->GetXaxis()->GetXmax()
-                );
-
-                hAsymmetryRef->SetBinContent(i, asymmetryRef);
-                hAsymmetryRef->SetBinError(i, asymmetryErrorRef);
-
-                hAsymmetryRef->Write();
-            }
-        }
+        TH1D* hDeltaAsymmetry = new TH1D(
+            Form("DeltaAsym_PbPb2024_%d_%d", centRanges[cBin].first, centRanges[cBin].second),
+            Form("#Delta A, %d-%d%%;p_{T} (GeV/#it{c});#Delta A",
+                centRanges[cBin].first, centRanges[cBin].second),
+            histMuPlus->GetNbinsX(),
+            histMuPlus->GetXaxis()->GetXmin(),
+            histMuPlus->GetXaxis()->GetXmax()
+        );
 
         //Now calculate for each centrality bin
         for (int i = 1; i <= histMuPlus->GetNbinsX(); ++i) {
-
-            //Get reference values
-            double NplusRef  = histMuPlusRef->GetBinContent(i);
-            double NminusRef = histMuMinusRef->GetBinContent(i);
-
-            double errPlusRef  = histMuPlusRef->GetBinError(i);
-            double errMinusRef = histMuMinusRef->GetBinError(i);
-
-            double denominatorRef = NplusRef + NminusRef;
-
-            double asymmetryRef = 0.0;
-            double asymmetryErrorRef = 0.0;
-
-            if (denominatorRef > 0.){
-
-                asymmetryRef = (NplusRef - NminusRef) / denominatorRef;
-                asymmetryErrorRef = 2./(denominatorRef*denominatorRef)*sqrt( pow(NminusRef*errPlusRef,2) + pow(NplusRef*errMinusRef,2));
-            }
 
             double Nplus  = histMuPlus->GetBinContent(i);
             double Nminus = histMuMinus->GetBinContent(i);
@@ -372,6 +524,8 @@ void improvedPenguin(){
             double errMinus = histMuMinus->GetBinError(i);
 
             double denominator = Nplus + Nminus;
+            double asymmetryRef = hAsymmetryRef->GetBinContent(i);
+            double asymmetryErrorRef = hAsymmetryRef->GetBinError(i);
 
             if (denominator > 0.) {
 
@@ -379,15 +533,21 @@ void improvedPenguin(){
                 double asymmetryError = 2./(denominator*denominator)*sqrt( pow(Nminus*errPlus,2) + pow(Nplus*errMinus,2));
 
                 double DeltaA = asymmetry - asymmetryRef;
+                double deltaAError = sqrt(
+                                    asymmetryError * asymmetryError +
+                                    asymmetryErrorRef * asymmetryErrorRef
+                                );
 
                 hDeltaAsymmetry->SetBinContent(i, DeltaA);
-                hDeltaAsymmetry->SetBinError(i, asymmetryError);
+                hDeltaAsymmetry->SetBinError(i, deltaAError);
             }
         }
 
+        hDeltaAsymmetry->Write();
+
     }//End of centrality bin loop.
 
-}*/
+}
 
 void PlotDeltaPeakAndMeanDiff()
 {
@@ -472,7 +632,7 @@ void PlotDeltaPeakAndMeanDiff()
     c1->SaveAs("DeltaPeakAndMeanDiff.png");
 }
 
-std::array<double, 3> CalculatePeakAndMeanDiff(const Dataset& dataset, const std::pair<double, double>& centRange, TFile* outputFile){
+std::array<double, 3> CalculatePeakAndMeanDiff(const Dataset& dataset, const std::pair<int, int>& centRange, TFile* outputFile){
 
     // Load root file.
     std::string fullPath = dataset.basePath + dataset.filePattern;
@@ -566,11 +726,11 @@ std::array<double, 3> CalculatePeakAndMeanDiff(const Dataset& dataset, const std
     chain->SetBranchAddress("Reco_Muon_isTightCutBased", Reco_Muon_isTightCutBased);
     //
 
-    TString namePlus  = Form("histMuPlus_%s_%g_%g", dataset.name.c_str(),centRange.first, centRange.second);
-    TString nameMinus = Form("histMuMinus_%s_%g_%g", dataset.name.c_str(), centRange.first, centRange.second);
-    TString titlePlus  = Form("#mu^{+}, %.0f-%.0f%%;p_{T} (GeV/#it{c});Counts",
+    TString namePlus  = Form("histMuPlus_%s_%d_%d", dataset.name.c_str(),centRange.first, centRange.second);
+    TString nameMinus = Form("histMuMinus_%s_%d_%d", dataset.name.c_str(), centRange.first, centRange.second);
+    TString titlePlus  = Form("#mu^{+}, %d-%d%%;p_{T} (GeV/#it{c});Counts",
                                centRange.first, centRange.second);
-    TString titleMinus = Form("#mu^{-}, %.0f-%.0f%%;p_{T} (GeV/#it{c});Counts",
+    TString titleMinus = Form("#mu^{-}, %d-%d%%;p_{T} (GeV/#it{c});Counts",
                                 centRange.first, centRange.second);
 
     TH1D* histMuPlus = new TH1D(namePlus, titlePlus, 100, 0., 100.);

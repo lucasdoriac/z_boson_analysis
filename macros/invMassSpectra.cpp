@@ -32,8 +32,8 @@ For example: goodCent -> Plot invMassSpectrum & Z yield = N -> goodCent + goodVe
 //---Macro settings
 
 TString plot_extension = ".png"; // ".png" for regular development and ".pdf" for final quality plots
-//std::string BasePath = "/home/lucas/Documents/CMS_analyzes/Z_boson_analysis/"; //IFT
-std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
+std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
+//std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
 
 // ##############################################################################
 // ##############################################################################
@@ -128,7 +128,8 @@ void invMassSpectra(){
 
 	gROOT->SetBatch(kTRUE);
 
-    Make_invMassSpectrum(datasets[1]);
+    //Make_invMassSpectrum(datasets[1]);
+    Make_invMassSpectrum(datasets[2]);
 }
 
 //---Observables
@@ -159,29 +160,9 @@ void Make_invMassSpectrum(const Dataset &dataset){
     Float_t zVtx;
     Short_t nPV;
     Int_t Centrality;
-    Short_t NpixelTracks;
 
     Int_t trigPrescale[8];
     ULong64_t HLTriggers;
-
-    Float_t SumET_HF;
-    Float_t SumET_HFplus;
-    Float_t SumET_HFminus;
-    Float_t SumET_HFplusEta4;
-    Float_t SumET_HFminusEta4;
-    Float_t SumET_ET;
-    Float_t SumET_EE;
-    Float_t SumET_EB;
-
-    Int_t nEP;
-
-    Float_t rpAng[100];
-    Float_t rpSin[100];
-    Float_t rpCos[100];
-
-    Float_t rpAng_origin[100];
-    Float_t rpSin_origin[100];
-    Float_t rpCos_origin[100];
 
     chain->SetBranchAddress("eventNb", &eventNb);
     chain->SetBranchAddress("runNb", &runNb);
@@ -189,30 +170,13 @@ void Make_invMassSpectrum(const Dataset &dataset){
 
     chain->SetBranchAddress("zVtx", &zVtx);
     chain->SetBranchAddress("nPV", &nPV);
-    chain->SetBranchAddress("Centrality", &Centrality);
-    chain->SetBranchAddress("NpixelTracks", &NpixelTracks);
 
     chain->SetBranchAddress("trigPrescale", trigPrescale);
     chain->SetBranchAddress("HLTriggers", &HLTriggers);
 
-    chain->SetBranchAddress("SumET_HF", &SumET_HF);
-    chain->SetBranchAddress("SumET_HFplus", &SumET_HFplus);
-    chain->SetBranchAddress("SumET_HFminus", &SumET_HFminus);
-    chain->SetBranchAddress("SumET_HFplusEta4", &SumET_HFplusEta4);
-    chain->SetBranchAddress("SumET_HFminusEta4", &SumET_HFminusEta4);
-    chain->SetBranchAddress("SumET_ET", &SumET_ET);
-    chain->SetBranchAddress("SumET_EE", &SumET_EE);
-    chain->SetBranchAddress("SumET_EB", &SumET_EB);
-
-    chain->SetBranchAddress("nEP", &nEP);
-
-    chain->SetBranchAddress("rpAng", rpAng);
-    chain->SetBranchAddress("rpSin", rpSin);
-    chain->SetBranchAddress("rpCos", rpCos);
-
-    chain->SetBranchAddress("rpAng_origin", rpAng_origin);
-    chain->SetBranchAddress("rpSin_origin", rpSin_origin);
-    chain->SetBranchAddress("rpCos_origin", rpCos_origin);
+    if(dataset.system == CollisionSystem::PbPb2024) {
+        chain->SetBranchAddress("Centrality", &Centrality);
+    }
     
     //Reconstructed dimuons
     Short_t Reco_Dimuon_size;
@@ -314,17 +278,6 @@ void Make_invMassSpectrum(const Dataset &dataset){
     std::vector<bool>* Reco_Muon_passesPFIsoTight = nullptr;
     std::vector<bool>* Reco_Muon_passesPFIsoVeryTight = nullptr;
 
-    std::vector<float>* Reco_Muon_isoTrackSumPt = nullptr;
-
-    std::vector<bool>* Reco_Muon_passesMultiIsoMedium = nullptr;
-
-    std::vector<float>* Reco_Muon_HIMVAIso = nullptr;
-
-    std::vector<bool>* Reco_Muon_HIMVAIsoWP80 = nullptr;
-    std::vector<bool>* Reco_Muon_HIMVAIsoWP85 = nullptr;
-    std::vector<bool>* Reco_Muon_HIMVAIsoWP90 = nullptr;
-    std::vector<bool>* Reco_Muon_HIMVAIsoWP95 = nullptr;
-
     chain->SetBranchAddress("Reco_Muon_size", &Reco_Muon_size);
 
     chain->SetBranchAddress("Reco_Muon_pt", &Reco_Muon_pt);
@@ -356,24 +309,13 @@ void Make_invMassSpectrum(const Dataset &dataset){
     chain->SetBranchAddress("Reco_Muon_passesPFIsoTight", &Reco_Muon_passesPFIsoTight);
     chain->SetBranchAddress("Reco_Muon_passesPFIsoVeryTight", &Reco_Muon_passesPFIsoVeryTight);
 
-    chain->SetBranchAddress("Reco_Muon_isoTrackSumPt", &Reco_Muon_isoTrackSumPt);
-
-    chain->SetBranchAddress("Reco_Muon_passesMultiIsoMedium", &Reco_Muon_passesMultiIsoMedium);
-
-    chain->SetBranchAddress("Reco_Muon_HIMVAIso", &Reco_Muon_HIMVAIso);
-
-    chain->SetBranchAddress("Reco_Muon_HIMVAIsoWP80", &Reco_Muon_HIMVAIsoWP80);
-    chain->SetBranchAddress("Reco_Muon_HIMVAIsoWP85", &Reco_Muon_HIMVAIsoWP85);
-    chain->SetBranchAddress("Reco_Muon_HIMVAIsoWP90", &Reco_Muon_HIMVAIsoWP90);
-    chain->SetBranchAddress("Reco_Muon_HIMVAIsoWP95", &Reco_Muon_HIMVAIsoWP95);
-
     //Histograms
     TH1D *h_invMass = new TH1D("hist_invMass", "Z0 invMassSpectrum", 40, 70, 110);
     TH1D *h_RAWinvMass = new TH1D("hist_RAWinvMass", "", 40, 70, 110);
     
     //Event-level cut values.
     const int minCentrality = 0.0;
-    const int maxCentrality = 180; //Cent max = maxCentrality/2.
+    const int maxCentrality = 200; //Cent max = maxCentrality/2.
     const double maxZvtx = 15.0;
 
     //Z-level cut values.
@@ -383,7 +325,7 @@ void Make_invMassSpectrum(const Dataset &dataset){
 
     //Muon-level cut values.
     const float EtaCutValue = 2.4;
-    const double ptCutValue = 10.0;
+    const double ptCutValue = 25.0;
     bool MuPlIsTight;
     bool MuMiIsTight;
 
@@ -474,10 +416,14 @@ void Make_invMassSpectrum(const Dataset &dataset){
         chain->GetEntry(i); //Get event i.
 
         //Good event selection
-        bool goodCent = (Centrality > minCentrality && Centrality < maxCentrality);
+        bool goodCent = true;
         bool goodVertex = (std::abs(zVtx) < maxZvtx);
         //Still missing 2 HF towers of 4 GeV of energy in the event.
         //Shapes of clusters compatibility.
+
+        if (dataset.system == CollisionSystem::PbPb2024) {
+            goodCent = (Centrality >= minCentrality && Centrality < maxCentrality);
+        }
 
         if (!goodCent) continue;
         if (!goodVertex) continue;
@@ -489,7 +435,10 @@ void Make_invMassSpectrum(const Dataset &dataset){
             bool goodRapidity = (std::abs(Reco_Dimuon_rapidity->at(j)) < RapidityCutValue);
             bool goodCharge = (Reco_Dimuon_sign[j] == 0);
             bool goodVtxProb = (Reco_Dimuon_vtxProb[j] > 0.02);
-            bool goodTrigger = (Reco_Dimuon_trig[j]) & triggerMatch;
+            bool goodTrigger = true;
+            if(dataset.system == CollisionSystem::PbPb2024){
+                goodTrigger = (Reco_Dimuon_trig[j]) & triggerMatch;
+            }
 
             if (!goodMass) continue;
             if (!goodRapidity) continue;
