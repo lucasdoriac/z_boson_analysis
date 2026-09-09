@@ -1,3 +1,7 @@
+/*
+Create a few histograms of interest for the PbPb2024 and ppRef2024 datasets after applying a definite set of good selections.
+*/
+
 //---Libraries
 #include <TFile.h>
 #include <TDirectory.h>
@@ -228,11 +232,11 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
     chain->SetBranchAddress("Reco_Muon_isTightCutBased", Reco_Muon_isTightCutBased);
 
     //Histograms to be saved in the ROOT mySelectedData file.
-    TH3D* h3D_PtMuPl_PtMumi_Cent = nullptr;
+    TH3D* h3D_PtMuPl_PtMuMi_Cent = nullptr;
     TH1D* h1D_centrality = nullptr;
 
     if(dataset.system == CollisionSystem::PbPb2024){
-        h3D_PtMuPl_PtMumi_Cent = new TH3D("h3D_PtMuPl_PtMumi_Cent",
+        h3D_PtMuPl_PtMuMi_Cent = new TH3D("h3D_PtMuPl_PtMumi_Cent",
         "p_{T}^{#mu^{+}} vs p_{T}^{#mu^{-}} vs Centrality; p_{T}^{#mu^{+}} [GeV/c]; p_{T}^{#mu^{-}} [GeV/c]; Centrality [%]",
         100, 0., 100., 100, 0., 100., 200, 0., 100.);
 
@@ -250,7 +254,7 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
         100, 0., 200.);
 
     TH1D* h1D_zRapidity = new TH1D("h1D_zRapidity",
-        "Rapidity of selected Z candidates;y^{Z};N of dimuons",
+        "Rapidity of selected Z candidates;y_{Z};N of dimuons",
         48, -2.4, 2.4);
 
     TH1D* h1D_ptMuPlus = new TH1D("h1D_ptMuPlus",
@@ -306,6 +310,38 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
         "p_{T} difference of selected dimuons;p_{T}^{#mu^{+}} - p_{T}^{#mu^{-}} [GeV/c];N of dimuons",
         200, -100., 100.);
 
+    //Some correlation histograms i thought could be interesting to look at
+
+    TH2D* h2D_muonPtRelDiff_Cent = nullptr;
+    TH2D* h2D_zPt_Cent = nullptr;
+
+    if(dataset.system == CollisionSystem::PbPb2024){//Centrality is only defined for PbPb2024 dataset.
+        //muonPtRelDiff vs Centrality
+        h2D_muonPtRelDiff_Cent = new TH2D("h2D_muonPtRelDiff_Cent",
+        "Relative p_{T} difference vs Centrality;Centrality [%];(p_{T}^{#mu^{+}}-p_{T}^{#mu^{-}})/(p_{T}^{#mu^{+}}+p_{T}^{#mu^{-}})",
+            200, 0., 100.,100, -1., 1.);
+
+        //Z pT vs Centrality
+        h2D_zPt_Cent = new TH2D("h2D_zPt_Cent",
+        "Z p_{T} vs Centrality;Centrality [%];p_{T}^{Z} [GeV/c]",
+            200, 0., 100., 100, 0., 200.);
+    }
+
+    //muonPtRelDiff vs Z pT
+    TH2D* h2D_muonPtRelDiff_zPt = new TH2D("h2D_muonPtRelDiff_zPt",
+    "Relative muon p_{T} difference vs Z p_{T};p_{T}^{Z} [GeV/c];(p_{T}^{#mu^{+}}-p_{T}^{#mu^{-}})/(p_{T}^{#mu^{+}}+p_{T}^{#mu^{-}})",
+        100, 0., 200., 100, -1., 1.);
+
+    //muonPtRelDiff vs Z rapidity
+    TH2D* h2D_muonPtRelDiff_zRapidity = new TH2D("h2D_muonPtRelDiff_zRapidity",
+    "Relative muon p_{T} difference vs Z rapidity;y^{Z};(p_{T}^{#mu^{+}}-p_{T}^{#mu^{-}})/(p_{T}^{#mu^{+}}+p_{T}^{#mu^{-}})",
+        48, -2.4, 2.4, 100, -1., 1.);
+
+    //Z pT vs Z rapidity
+    TH2D* h2D_zPt_zRapidity = new TH2D("h2D_zPt_zRapidity",
+    "Z p_{T} vs Z rapidity;p_{T}^{Z} [GeV/c];y^{Z}",
+        100, 0., 200., 48, -2.4, 2.4);
+    
 
     //Muon-level selection variables
     double ptplus, ptminus;
@@ -328,7 +364,7 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
             //Good Z selection
             bool goodMass = (Reco_Dimuon_invMass->at(j) > minZ_Mass && Reco_Dimuon_invMass->at(j) < maxZ_Mass);
             bool goodRapidity = (std::abs(Reco_Dimuon_rapidity->at(j)) < RapidityCutValue);
-            bool goodCharge = (Reco_Dimuon_sign[j] == 0);
+            bool goodCharge = (Reco_Dimuon_sign[j] == 0); //Opposite sign muons.
             bool goodVtxProb = (Reco_Dimuon_vtxProb[j] > 0.001); //Vertex probability cut of .1% for dimuon candidates.
             bool isTriggerMatched = true;
 
@@ -401,9 +437,18 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
             h1D_muonPtDiff->Fill(Reco_Dimuon_muonPtDiff->at(j));
 
             if (dataset.system == CollisionSystem::PbPb2024) {
-                h3D_PtMuPl_PtMumi_Cent->Fill(ptplus, ptminus, Centrality/2.);
+                h3D_PtMuPl_PtMuMi_Cent->Fill(ptplus, ptminus, Centrality/2.);
                 h1D_centrality->Fill(Centrality/2.);
+
+                //Latest correlation histograms
+                h2D_muonPtRelDiff_Cent->Fill(Centrality/2., Reco_Dimuon_muonPtRelDiff->at(j));
+                h2D_zPt_Cent->Fill(Centrality/2., Reco_Dimuon_pt->at(j));
             }
+
+            //Latest correlation histograms
+            h2D_muonPtRelDiff_zPt->Fill(Reco_Dimuon_pt->at(j), Reco_Dimuon_muonPtRelDiff->at(j));
+            h2D_muonPtRelDiff_zRapidity->Fill(Reco_Dimuon_rapidity->at(j), Reco_Dimuon_muonPtRelDiff->at(j));
+            h2D_zPt_zRapidity->Fill(Reco_Dimuon_pt->at(j), Reco_Dimuon_rapidity->at(j));
 
         }//End of dimuon candidate loop.
 
@@ -420,7 +465,6 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
                       << std::flush;
         }
 
-
     }//Exiting event-by-event loop.
 
 
@@ -430,8 +474,12 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
 
     //Write everything on the current directory.
     if(dataset.system == CollisionSystem::PbPb2024){//Only write for PbPb2024 dataset.
-        h3D_PtMuPl_PtMumi_Cent->Write(); 
+        h3D_PtMuPl_PtMuMi_Cent->Write(); 
         h1D_centrality->Write();
+
+        //Latest correlation histograms
+        h2D_muonPtRelDiff_Cent->Write();
+        h2D_zPt_Cent->Write();
     }
     h1D_invMass->Write();
     h1D_zPt->Write();
@@ -448,6 +496,11 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
     h1D_acoplanarity->Write();
     h1D_muonPtRelDiff->Write();
     h1D_muonPtDiff->Write();
+    
+    //Latest correlation histograms
+    h2D_muonPtRelDiff_zPt->Write();
+    h2D_muonPtRelDiff_zRapidity->Write();
+    h2D_zPt_zRapidity->Write();
 
     //Leave directory.
     outputFile->cd();

@@ -19,7 +19,7 @@ void basicCanvasFormatting(TCanvas* c){
     c->SetTicky(1);
     c->SetFillColor(0);
     c->SetFrameFillColor(0);
-    c->SetFrameLineWidth(2);
+    c->SetFrameLineWidth(1);
 }
 
 void basicPaddedCanvasFormatting(TCanvas* c, TPad* pad1, TPad* pad2){
@@ -55,16 +55,18 @@ void basicPaddedCanvasFormatting(TCanvas* c, TPad* pad1, TPad* pad2){
 }
 
 void basicHistFormatting(TH1D* hist){
+    hist->SetStats(0);
+    hist->SetTitle("");
     hist->GetXaxis()->CenterTitle(false);
     hist->GetYaxis()->CenterTitle(false);
-    hist->GetXaxis()->SetTitleOffset(.9);
-    hist->GetYaxis()->SetTitleOffset(1.);
+    hist->GetXaxis()->SetTitleOffset(1.1);
+    hist->GetYaxis()->SetTitleOffset(1.2);
     hist->GetXaxis()->SetTitleFont(42);
     hist->GetYaxis()->SetTitleFont(42);
     hist->GetXaxis()->SetLabelFont(42);
     hist->GetYaxis()->SetLabelFont(42);
-    hist->GetXaxis()->SetTitleSize(0.055);
-    hist->GetYaxis()->SetTitleSize(0.055);
+    hist->GetXaxis()->SetTitleSize(0.042);
+    hist->GetYaxis()->SetTitleSize(0.042);
 }
 
 void basicPaddedHistFormatting(TH1D* hist, bool isRatio = false){
@@ -117,7 +119,7 @@ void basicLegendFormatting(TLegend* leg){
     leg->SetBorderSize(0);
     leg->SetFillStyle(0);
     leg->SetTextFont(42);
-    leg->SetTextSize(0.044);
+    leg->SetTextSize(0.033);
     leg->SetMargin(0.2);
     leg->SetEntrySeparation(0.04);
 }
