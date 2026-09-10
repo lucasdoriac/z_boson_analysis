@@ -1,3 +1,7 @@
+/*
+Creates normalized distributions for selected histograms from the input ROOT file and saves them as plots.
+*/
+
 //---Libraries
 #include <TFile.h>
 #include <TDirectory.h>

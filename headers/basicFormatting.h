@@ -7,6 +7,7 @@
 #include <TString.h>
 #include <TLatex.h>
 #include <TPad.h>
+#include <TGraphErrors.h>
 
 //---Histogram formatting functions
 
@@ -114,6 +115,25 @@ void basicPaddedHistFormatting(TH1D* hist, bool isRatio = false){
 
     hist->SetMarkerStyle(20);
 }
+
+void basicGraphFormatting(TGraphErrors* graph){
+    graph->SetStats(0);
+    graph->SetTitle("");
+    graph->GetXaxis()->CenterTitle(false);
+    graph->GetYaxis()->CenterTitle(false);
+    graph->GetXaxis()->SetTitleOffset(1.1);
+    graph->GetYaxis()->SetTitleOffset(1.2);
+    graph->GetXaxis()->SetTitleFont(42);
+    graph->GetYaxis()->SetTitleFont(42);
+    graph->GetXaxis()->SetLabelFont(42);
+    graph->GetYaxis()->SetLabelFont(42);
+    graph->GetXaxis()->SetTitleSize(0.042);
+    graph->GetYaxis()->SetTitleSize(0.042);
+}
+
+/*void basicPaddedGraphFormatting(){
+
+}*/
 
 void basicLegendFormatting(TLegend* leg){
     leg->SetBorderSize(0);
