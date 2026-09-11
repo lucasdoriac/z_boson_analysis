@@ -341,8 +341,13 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
     TH2D* h2D_zPt_zRapidity = new TH2D("h2D_zPt_zRapidity",
     "Z p_{T} vs Z rapidity;p_{T}^{Z} [GeV/c];y^{Z}",
         100, 0., 200., 48, -2.4, 2.4);
-    
 
+    //pT(mu+) vs pT(mu-)
+    TH2D* h2D_PtMuPl_PtMuMi = new TH2D("h2D_PtMuPl_PtMuMi",
+    "p_{T} of muon+ vs p_{T} of muon-;p_{T}^{#mu^{+}} [GeV/c];p_{T}^{#mu^{-}} [GeV/c]",
+        100, 0., 100., 100, 0., 100.);
+
+    
     //Muon-level selection variables
     double ptplus, ptminus;
     double etaplus, etaminus;
@@ -449,6 +454,7 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
             h2D_muonPtRelDiff_zPt->Fill(Reco_Dimuon_pt->at(j), Reco_Dimuon_muonPtRelDiff->at(j));
             h2D_muonPtRelDiff_zRapidity->Fill(Reco_Dimuon_rapidity->at(j), Reco_Dimuon_muonPtRelDiff->at(j));
             h2D_zPt_zRapidity->Fill(Reco_Dimuon_pt->at(j), Reco_Dimuon_rapidity->at(j));
+            h2D_PtMuPl_PtMuMi->Fill(ptplus, ptminus);
 
         }//End of dimuon candidate loop.
 
@@ -501,7 +507,8 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
     h2D_muonPtRelDiff_zPt->Write();
     h2D_muonPtRelDiff_zRapidity->Write();
     h2D_zPt_zRapidity->Write();
-
+    h2D_PtMuPl_PtMuMi->Write();
+    
     //Leave directory.
     outputFile->cd();
 }
