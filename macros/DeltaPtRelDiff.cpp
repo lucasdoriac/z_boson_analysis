@@ -107,10 +107,10 @@ void DeltaPtRelDiffObs(){
 void PlotDeltaPt_vsCentralityBin(){
 
     int nPoints = DeltaPtAndError.size();//Number of centrality bins. Needs to be equal to 4.
-        if(nPoints != CentralityBinsSet.size()){
-            std::cerr << "Error: Number of points in DeltaPtAndError does not match number of centrality bins." << std::endl;
-            return;
-        }
+    if(nPoints != CentralityBinsSet.size()){
+        std::cerr << "Error: Number of points in DeltaPtAndError does not match number of centrality bins." << std::endl;
+        return;
+    }
     
     std::vector<double> xValues(nPoints);
     std::vector<double> yValues(nPoints);

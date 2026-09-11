@@ -230,6 +230,7 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
 
     chain->SetBranchAddress("Reco_Muon_trig", Reco_Muon_trig);
     chain->SetBranchAddress("Reco_Muon_isTightCutBased", Reco_Muon_isTightCutBased);
+    
 
     //Histograms to be saved in the ROOT mySelectedData file.
     TH3D* h3D_PtMuPl_PtMuMi_Cent = nullptr;

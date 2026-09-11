@@ -58,12 +58,12 @@ std::vector<std::pair<double, double>> MeanDifferenceAndError_PbPb_vs_ppRef;
 
 //---Function declarations
 std::pair<double, double> Get_ppRefValues(TFile* inputFile);
-void CalculateMeanDifference_PbPb_vs_ppRef(TFile* inputFile, double lowCent, double highCent);
+void CalculateMeanDifference_PbPb_vs_ppRef(TFile* inputFile, double lowCent, double highCent, std::pair<double, double> ppRefValues);
 void PlotMeanDifference_PbPb_vs_ppRef();
 
 
 //---Main()
-void MuonYieldAsymmetry(){
+void MeanDifference(){
 
     gROOT->SetBatch(kTRUE);
     TFile* inputFile = new TFile("mySelectedData.root", "READ");
@@ -74,7 +74,7 @@ void MuonYieldAsymmetry(){
     for(const auto& centBin : CentralityBinsSet) {
         double lowCent = centBin.first;
         double highCent = centBin.second;
-        CalculateMeanDifference_PbPb_vs_ppRef(inputFile, lowCent, highCent);
+        CalculateMeanDifference_PbPb_vs_ppRef(inputFile, lowCent, highCent, ppRefValues);
     }
 
     PlotMeanDifference_PbPb_vs_ppRef();
@@ -151,7 +151,7 @@ void PlotMeanDifference_PbPb_vs_ppRef(){
     delete c;
 }
 
-void CalculateMeanDifference_PbPb_vs_ppRef(TFile* inputFile, double lowCent, double highCent){
+void CalculateMeanDifference_PbPb_vs_ppRef(TFile* inputFile, double lowCent, double highCent, std::pair<double, double> ppRefValues){
 
     //Get directory
     TDirectory *PbPb_dir = inputFile->GetDirectory("PbPb2024_Data");
@@ -175,7 +175,7 @@ void CalculateMeanDifference_PbPb_vs_ppRef(TFile* inputFile, double lowCent, dou
 
     //Select centrality range and project onto pT(mu+) vs pT(mu-) plane.
     h3D_PtMuPl_PtMumi_Cent->GetZaxis()->SetRange(binLow, binHigh);
-    TH2D* h2D_PtMuPl_PtMumi = dynamic_cast<TH2D*>(h3D_PtMuPl_PtMumi_Cent->Project3D("xy"));
+    TH2D* h2D_PtMuPl_PtMumi = dynamic_cast<TH2D*>(h3D_PtMuPl_PtMumi_Cent->Project3D("yx"));
 
     //Calculate mean pT of mu+ and mu- in this centrality range.
     double MuPl_mean = h2D_PtMuPl_PtMumi->GetMean(1); //1- x-axis
@@ -184,9 +184,13 @@ void CalculateMeanDifference_PbPb_vs_ppRef(TFile* inputFile, double lowCent, dou
     double MuMi_mean = h2D_PtMuPl_PtMumi->GetMean(2); //2- y-axis
     double MuMi_mean_error = h2D_PtMuPl_PtMumi->GetMeanError(2);
 
-    //Calculate the difference and its error.
-    double MeanDifference = MuPl_mean - MuMi_mean;
-    double MeanDifferenceError = std::sqrt(std::pow(MuPl_mean_error, 2) + std::pow(MuMi_mean_error, 2)); //NEEDS REVIEW. MEASUREMENT MAY BE CORRELATED.
+    //Calculate the difference and its error in PbPb sample.
+    double MeanDifferencePbPb = MuPl_mean - MuMi_mean;
+    double MeanDifferenceErrorPbPb = std::sqrt(std::pow(MuPl_mean_error, 2) + std::pow(MuMi_mean_error, 2)); //NEEDS REVIEW. MEASUREMENT MAY BE CORRELATED.
+
+    //Subtract from reference values.
+    double MeanDifference = MeanDifferencePbPb - ppRefValues.first;
+    double MeanDifferenceError = std::sqrt(std::pow(MeanDifferenceErrorPbPb, 2) + std::pow(ppRefValues.second, 2)); //NEEDS REVIEW. MEASUREMENT MAY BE CORRELATED.
 
     //Store the mean difference and its error for this centrality bin.
     MeanDifferenceAndError_PbPb_vs_ppRef.push_back(std::make_pair(MeanDifference, MeanDifferenceError));
