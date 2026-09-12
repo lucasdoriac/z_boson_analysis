@@ -221,7 +221,7 @@ void CalculatePtRelativeDiff(const Dataset& dataset, std::pair<int, int> central
 void PlotPtRelativeDiff();
 
 //---Main function
-void PtRelDiffFromTree(){
+void PtRelDiff_FROMTREE(){
 
     ppRefResults.clear();
     PbPbResults.clear();

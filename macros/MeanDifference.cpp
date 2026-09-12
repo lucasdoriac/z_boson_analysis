@@ -157,7 +157,7 @@ void CalculateMeanDifference_PbPb_vs_ppRef(TFile* inputFile, double lowCent, dou
     TDirectory *PbPb_dir = inputFile->GetDirectory("PbPb2024_Data");
 
     //Original histogram
-    TH3D* h3D_PtMuPl_PtMumi_Cent = dynamic_cast<TH3D*>(PbPb_dir->Get("h3D_PtMuPl_PtMumi_Cent"));
+    TH3D* h3D_PtMuPl_PtMumi_Cent = dynamic_cast<TH3D*>(PbPb_dir->Get("h3D_PtMuPl_PtMuMi_Cent"));
     if(!h3D_PtMuPl_PtMumi_Cent) {
         std::cerr << "Error: Could not find the histogram h3D_PtMuPl_PtMumi_Cent in the input file." << std::endl;
         return;

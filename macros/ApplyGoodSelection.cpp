@@ -237,7 +237,7 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
     TH1D* h1D_centrality = nullptr;
 
     if(dataset.system == CollisionSystem::PbPb2024){
-        h3D_PtMuPl_PtMuMi_Cent = new TH3D("h3D_PtMuPl_PtMumi_Cent",
+        h3D_PtMuPl_PtMuMi_Cent = new TH3D("h3D_PtMuPl_PtMuMi_Cent",
         "p_{T}^{#mu^{+}} vs p_{T}^{#mu^{-}} vs Centrality; p_{T}^{#mu^{+}} [GeV/c]; p_{T}^{#mu^{-}} [GeV/c]; Centrality [%]",
         100, 0., 100., 100, 0., 100., 200, 0., 100.);
 
