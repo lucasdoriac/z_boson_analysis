@@ -21,13 +21,14 @@
 #include <vector>
 #include <cmath>
 #include <tuple>
+#include <iomanip>
 #include "../headers/basicFormatting.h"
 
 
 //---Macro settings
 std::string plot_extension = ".pdf"; // ".png" for regular development and ".pdf" for final quality plots
-//std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
-std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
+std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
+//std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
 
 
 //Good selection threshold values
@@ -138,6 +139,7 @@ struct PtRelDiffResult {
     double skewness;
 };
 
+
 //Vectors to store the results of the PtRelDiff calculation for ppRef and PbPb datasets.
 std::vector<PtRelDiffResult> ppRefResults; //dummy string, n, mean, meanError, variance, skewness.
 std::vector<PtRelDiffResult> PbPbResults; //centralityBinStr, n, mean, meanError, variance, skewness.
@@ -147,6 +149,7 @@ std::vector<PtRelDiffResult> FinalResults; //centralityBinStr, n, mean, meanErro
 void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double highCent);
 void PlotPtRelativeDiff();
 void PrintStatistics();
+std::tuple<Long64_t, double, double, double, double> GetStatistics(const std::vector<double>& values);
 
 //---Main function
 void PtRelDiff_FROMTREE(){
@@ -315,7 +318,7 @@ void PlotPtRelativeDiff(){
     //Plot
     TCanvas* c = new TCanvas("c", "Pt Relative Difference FROMTREE vs Centrality", 800, 600);
     basicCanvasFormatting(c);
-    c->SetLeftMargin(0.14);
+    c->SetLeftMargin(0.13);
 
     //Format graph.
     graph->SetMarkerStyle(21);
@@ -329,7 +332,7 @@ void PlotPtRelativeDiff(){
     graph->GetXaxis()->SetTitle("Centrality (%)");
     graph->GetYaxis()->SetTitle("#LT#Delta p_{T}^{rel}#GT_{PbPb} - #LT#Delta p_{T}^{rel}#GT_{ppRef}");
     graph->GetYaxis()->CenterTitle(true);
-    graph->GetYaxis()->SetTitleOffset(1.3);
+    graph->GetYaxis()->SetTitleOffset(1.4);
 
     graph->Draw("AP");
 
@@ -345,8 +348,8 @@ void PlotPtRelativeDiff(){
     drawLatexText("PbPb 2024, ppRef 2024 (5.36 TeV)", 0.6, 0.93, 0.033);
     
     //Plot specifications
-    drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.2, 0.75, 0.03);
-    drawLatexText("60 < M_{#mu #mu} < 120 GeV", 0.2, 0.7, 0.03);
+    drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.2, 0.8, 0.03);
+    drawLatexText("60 < M_{#mu #mu} < 120 GeV", 0.2, 0.75, 0.03);
 
     c->Update();
     std::string outputName = "DeltaPtRelDiff_vs_Centrality_FROMTREE" + plot_extension;
@@ -475,11 +478,9 @@ void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double high
     const float minCentrality = 2.*lowCent;
     const float maxCentrality = 2.*highCent;
 
-    //Helpers to calculate mean of PtRelDiff event-by-event.
-    Long64_t n = 0;
-    double mean = 0;
-    double M2 = 0;
-    double M3 = 0;
+    //Vector to calculate statistics from.
+    std::vector<double> ptRelDiffValues;
+
 
     for(Long64_t i = 0; i < nEvents; ++i){//Loop through all EVENTS in the CHAIN.
 
@@ -536,24 +537,9 @@ void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double high
 
             if (!goodMuPl || !goodMuMi) continue;
             //End of good selection for dimuon candidate j of event i.
-
-            //Cesar pointed out that a measure of PtRelDiff from a histogram may introduce a bias because of the binning.
-            //Thus, we will calculate the PtRelDiff event-by-event, and calculate its mean without binning it.
-            //Calculate mean, standard deviation and skewness.
-
-            double x = Reco_Dimuon_muonPtRelDiff->at(j);
             
-            Long64_t n_old = n;
-            ++n;
-
-            double delta = x - mean;
-            double delta_n = delta/n;
-            double term1 = delta*delta_n*n_old;
-
-            M3 += (term1 * delta_n * (n - 2) - 3.0 * delta_n * M2);
-            M2 += term1;
-            mean += delta_n;
-
+            ptRelDiffValues.push_back(Reco_Dimuon_muonPtRelDiff->at(j));
+        
         }//End of dimuon candidate loop.
 
 
@@ -571,9 +557,8 @@ void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double high
 
     }//Exiting event-by-event loop.
 
-    double variance = M2 / (n - 1);
-    double meanError = std::sqrt(variance / n);
-    double skewness = std::sqrt(static_cast<double>(n))*M3/std::pow(M2, 1.5);
+    //Calculate statistics from the collected PtRelDiff values.
+    auto [n, mean, meanError, variance, skewness] = GetStatistics(ptRelDiffValues);
 
     PtRelDiffResult result;
     if(dataset.system == CollisionSystem::PbPb2024){
@@ -604,4 +589,43 @@ void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double high
     }
 
     delete chain;
+}
+
+std::tuple<Long64_t, double, double, double, double> GetStatistics(const std::vector<double>& values) {
+
+    const Long64_t n = values.size();
+
+    //Mean (M1)
+    double mean = 0.0;
+
+    for(double x : values)
+    {
+        mean += x;
+    }
+
+    mean = mean/static_cast<double>(n);
+
+
+    //Central moments (M2, M3)
+    double M2 = 0.0;
+    double M3 = 0.0;
+
+    for(double x : values){
+
+        double delta = x - mean;
+
+        M2 += delta * delta;
+        M3 += delta * delta * delta;
+    }
+
+    //Variance (M2/n)
+    double variance = M2/static_cast<double>(n); // std dev = \sqrt(variance).
+
+    // Moment skewness (M3/(M2^(3/2)))
+    double skewness = std::sqrt(static_cast<double>(n))*M3/std::pow(M2, 1.5);
+
+    //Mean error (sqrt(variance/n))
+    double meanError = std::sqrt(variance/static_cast<double>(n));
+
+    return std::make_tuple(n, mean, meanError, variance, skewness);
 }
