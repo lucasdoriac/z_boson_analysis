@@ -25,7 +25,7 @@
 
 
 //---Macro settings
-std::string plot_extension = ".png"; // ".png" for regular development and ".pdf" for final quality plots
+std::string plot_extension = ".pdf"; // ".png" for regular development and ".pdf" for final quality plots
 double delta = 1e-6; //Small value to avoid binning issues when projecting histograms.
 double fitMin = 40.; //Minimum x-value for the fit range of the asymmetry histogram.
 double fitMax = 60.; //Maximum x-value for the fit range of the asymmetry histogram.
@@ -35,20 +35,20 @@ double fitMax = 60.; //Maximum x-value for the fit range of the asymmetry histog
 
 
 //Set of centrality bins for PbPb2024 data. We can decide to change the centrality bins later if we want to.
-/*std::vector<std::pair<double, double>> CentralityBinsSet = {
+std::vector<std::pair<double, double>> CentralityBinsSet = {
     {0., 10.},
     {10., 20.},
     {20., 30.},
     {30., 100.}
-};*/
+};
 
 //Second proposed set of centrality bins for PbPb2024 data.
-std::vector<std::pair<double, double>> CentralityBinsSet = {
+/*std::vector<std::pair<double, double>> CentralityBinsSet = {
     {0., 10.},
     {10., 30.},
     {30., 50.},
     {50., 100.}
-};
+};*/
 
 //Vector of histograms
 std::vector<TH1D*> AsymmetryHists;
@@ -172,7 +172,15 @@ void MakeAsymmetryHist_PbPb(TFile* inputFile, double lowCent, double highCent){
             continue;
         }
         double asymmetry = (N_plus - N_minus) / (N_plus + N_minus);
+
+        //Error propagation for asymmetry calculation
+        double var_plus  = N_plus;
+        double var_minus = N_minus;
+        double denominator = N_plus + N_minus;
+        double covariance = std::min(var_plus, var_minus);
+        double asymmetryError = 2./(denominator*denominator)*std::sqrt(N_minus*N_minus*var_plus + N_plus*N_plus*var_minus - 2.0*N_plus*N_minus*covariance);
         h1D_Asymmetry_ppRef->SetBinContent(i, asymmetry);
+        h1D_Asymmetry_ppRef->SetBinError(i, asymmetryError);
     }
     //End of ppRef part.
 
@@ -211,6 +219,15 @@ void MakeAsymmetryHist_PbPb(TFile* inputFile, double lowCent, double highCent){
         }
         double asymmetry = (N_plus - N_minus) / (N_plus + N_minus);
         h1D_AsymmetryPbPb->SetBinContent(i, asymmetry);
+
+        //Error propagation for asymmetry calculation
+        double var_plus  = N_plus;
+        double var_minus = N_minus;
+        double denominator = N_plus + N_minus;
+        double covariance = std::min(var_plus, var_minus);
+        double asymmetryError = 2./(denominator*denominator)*std::sqrt(N_minus*N_minus*var_plus + N_plus*N_plus*var_minus - 2.0*N_plus*N_minus*covariance);
+        h1D_AsymmetryPbPb->SetBinContent(i, asymmetry);
+        h1D_AsymmetryPbPb->SetBinError(i, asymmetryError);
     }
     //End of PbPb part.
 

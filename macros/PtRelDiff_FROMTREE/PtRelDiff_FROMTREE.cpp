@@ -296,7 +296,25 @@ void PlotPtRelativeDiff(){
     }
 
     //Values for TGraphErrors are just mean diff and mean error diff so
-    std::vector<double> xValues, yValues, xErrors, yErrors;
+    int nPoints = FinalResults.size();
+    if(nPoints != CentralitySet.size()){
+        std::cerr << "Error: Number of points in DeltaPtAndError does not match number of centrality bins." << std::endl;
+        return;
+    }
+
+    std::vector<double> xValues(nPoints);
+    std::vector<double> yValues(nPoints);
+    std::vector<double> xErrors(nPoints);
+    std::vector<double> yErrors(nPoints);
+
+    for(int i = 0; i < nPoints; ++i){
+        xValues[i] = i+1;
+        xErrors[i] = 0.
+        yValues[i] = FinalResults[i].mean;
+        yErrors[i] = FinalResults[i].meanError;
+    }
+
+    /*std::vector<double> xValues, yValues, xErrors, yErrors;
     int idx = 0;
     for (const auto& result : FinalResults) {
         double lowCent = CentralitySet[idx].first;
@@ -309,10 +327,11 @@ void PlotPtRelativeDiff(){
         yErrors.push_back(result.meanError);
 
         ++idx;
-    }
+    }*/
 
     //TGraphErrors
-    TGraphErrors* graph = new TGraphErrors(xValues.size(), xValues.data(), yValues.data(), xErrors.data(), yErrors.data());
+    //TGraphErrors* graph = new TGraphErrors(xValues.size(), xValues.data(), yValues.data(), xErrors.data(), yErrors.data());
+    TGraphErrors* graph = new TGraphErrors(nPoints, xValues.data(), yValues.data(), xErrors.data(), yErrors.data());
     basicGraphFormatting(graph);
 
     //Plot
@@ -320,24 +339,59 @@ void PlotPtRelativeDiff(){
     basicCanvasFormatting(c);
     c->SetLeftMargin(0.13);
 
+    //Frame TH1 helper to set the x-axis labels for centrality bins.
+    TH1D* frame = new TH1D("frame","",nPoints,0.5,nPoints + 0.5);
+    basicHistFormatting(frame);
+    for(int i = 0; i < nPoints; ++i){
+        std::string label = Form("%.0f-%.0f%%", CentralitySet[i].first, CentralitySet[i].second);
+        frame->GetXaxis()->SetBinLabel(i + 1,label.c_str());
+    }
+
+    //Give range information to new frame histogram:
+    double yMin = yValues[0] - yErrors[0];
+    double yMax = yValues[0] + yErrors[0];
+    for(int i = 1; i < nPoints; ++i){
+        yMin = std::min(yMin,yValues[i] - yErrors[i]);
+        yMax = std::max(yMax,yValues[i] + yErrors[i]);
+    }
+    double yRange = yMax - yMin;
+    yMin -= 0.20 * yRange;
+    yMax += 0.20 * yRange;
+    
+    //Make sure zero is visible:
+    yMin = std::min(yMin, 0.0);
+    yMax = std::max(yMax, 0.0);
+    frame->SetMinimum(yMin);
+    frame->SetMaximum(yMax);
+    //
+
+    frame->GetXaxis()->SetTickLength(0.0);
+    frame->GetXaxis()->SetTitle("Centrality bin");
+    frame->GetYaxis()->SetTitle("#Delta p^{rel}_{T,PbPb} - #Delta p^{rel}_{T,ppRef}");
+    frame->GetYaxis()->CenterTitle(true);
+    frame->GetYaxis()->SetTitleOffset(1.5);
+
+    //Draw only the axis frame.
+    frame->Draw("AXIS");
+
     //Format graph.
     graph->SetMarkerStyle(21);
-    graph->SetMarkerSize(1.0);
-    graph->SetMarkerColor(kRed+1);
-    graph->SetLineColor(kRed+1);
+    graph->SetMarkerSize(0.9);
+    graph->SetMarkerColorAlpha(kRed+1, 1.);
+    graph->SetLineColorAlpha(kRed-7, 0.8);
     graph->SetLineWidth(2);
 
     //Axes configurations
-    graph->GetXaxis()->SetLimits(0, 100);
-    graph->GetXaxis()->SetTitle("Centrality (%)");
-    graph->GetYaxis()->SetTitle("#LT#Delta p_{T}^{rel}#GT_{PbPb} - #LT#Delta p_{T}^{rel}#GT_{ppRef}");
-    graph->GetYaxis()->CenterTitle(true);
-    graph->GetYaxis()->SetTitleOffset(1.4);
+    //graph->GetXaxis()->SetLimits(0, 100);
+    //graph->GetXaxis()->SetTitle("Centrality (%)");
+    //graph->GetYaxis()->SetTitle("#LT#Delta p_{T}^{rel}#GT_{PbPb} - #LT#Delta p_{T}^{rel}#GT_{ppRef}");
+    //graph->GetYaxis()->CenterTitle(true);
+    //graph->GetYaxis()->SetTitleOffset(1.4);
 
-    graph->Draw("AP");
+    graph->Draw("P SAME");
 
     //Grey line at y=0
-    TLine* line = new TLine(graph->GetXaxis()->GetXmin(), 0.0, graph->GetXaxis()->GetXmax(), 0.0);
+    TLine* line = new TLine(0.5, 0.0, 0.5+nPoints, 0.0);
     line->SetLineColor(kGray);
     line->SetLineStyle(7);
     line->SetLineWidth(2);
