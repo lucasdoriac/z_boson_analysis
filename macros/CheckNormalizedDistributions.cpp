@@ -19,7 +19,7 @@ Creates normalized distributions for selected histograms from the input ROOT fil
 
 
 //---Macro settings
-std::string plot_extension = ".png"; // ".png" for regular development and ".pdf" for final quality plots
+std::string plot_extension = ".pdf"; // ".png" for regular development and ".pdf" for final quality plots
 
 
 // ##############################################################################

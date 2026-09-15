@@ -1,89 +1,3 @@
-/*
-1- First candidate plot let's do the usual N(\mu+)(pT) and N(\mu-)(pT).
-This is just the distribution of dN/dpT for the individual muon daughters and it's the distribution that
-the theory paper uses to predict the shift in the peak of THESE distributions in the 30-50 GeV region.
-On the bottom panel we will plot R(pT) = N(\mu+)/N(\mu-). We can do this for both PbPb and ppRef.
-
-2- We would like to also look at the double ratio of the R(pT) distributions, i.e. R(PbPb)/R(ppRef).
-For this we can plot the usual N(\mu+)(pT) and N(\mu-)(pT), as we did in the first candidate plot, but now for PbPb and ppRef in the same canvas. 
-This would give four distributions in the top pannel, and in the bottom panel we can plot the double ratio R(PbPb)/R(ppRef).
-
-Of course, we could also do that in the first candidate plot, since we are calculating R(pT) = N(\mu+)/N(\mu-) for each dataset,
-i.e. we are already calculating R(PbPb) and R(ppRef). However, it is interesting at a first moment to plot both datasets separately,
-and then later plot them in the same canvas.
-
-3- Another observable option is the event-by-event relative difference in pT between the two muons. This is defined as:
-    ΔpT = (pT(mu+) - pT(mu-)) / (pT(mu+) + pT(mu-)).
-If we call that variable ΔpT, then we can calculate ΔpT(PbPb) and ΔpT(ppRef), event-by-event.
-In an ideal scenario, one might expect ΔpT(PbPb) to be modified by the presence of the B field in the QGP,
-with maximum effects on the 40-70% centrality bin (and maybe in the low pT region?).
-
-The sweet observable would be the mean of ΔpT(PbPb), <ΔpT(PbPb)> per centrality bin,
-as well as their difference with respect to the ppRef dataset, i.e. <ΔpT(PbPb)> - <ΔpT(ppRef)>.
-
-4- The last simple observable we can try to check is the charge asymmetry of the muons in each dataset. This is defined as:
-    A(X) = (N(mu+) - N(mu-)) / (N(mu+) + N(mu-)).
-Notice that this is a YIELD asymmetry, NOT a pT asymmetry. It is the difference in the number of muons of each charge.
-(Normalized by the total number of muons?)
-We can calculate A(PbPb) and A(ppRef) and plot them in the same canvas.
-In the bottom panel we can plot the difference in the charge asymmetry between PbPb and ppRef, i.e. ΔA = A(PbPb) - A(ppRef).
-
--------------------------------------
-After doing the four candidate plots, now we move to another plot that gives a centrality-dependent observable.
-
-The initial centrality bins would be:
-Set 1:
-- 0-10%
-- 10-30%
-- 30-50%
-- 50-70%
-- 70-100%
-
-Or maybe another temptative list is:
-Set 2:
-- 0-10%
-- 10-20%
-- 20-30%
-- 30-40%
-- 40-100%
-
-pT sectors:
-- 20-30 GeV
-- 30-40 GeV
-- 40-50 GeV
-- 50-60 GeV
-
-Another thing to observe is that we don't need to analyze the whole pT spectrum.
-The proposed effect is in the 30-50 GeV region, so we can focus on that region and maybe extend it a little bit to 20-60 GeV.
-
-The observables that i was thinking about were:
-
-5- Peak and mean of PbPb and ppRef dN/dpT distributions as function of centrality (i.e. per centrality bin).
-
-The asymmetry A has the same binnage as the pT distributions, but i think it could be interesting
-to vary the pT binning and see if the asymmetry is more pronounced in a specific pT region.
-For example, we could check it per pT sector.
-One possibility to study is to vary the bin width for A.
-
-If there is a measurable asymmetry between the pT distributions, it should be only apparent in PbPb mid-central collisions.
-
-That means A(ppRef) should be approximately 0 for all pT sectors, while A(PbPb) should have asymmetry in some pT sector,
-thus producing a deviation ΔA = A(PbPb) - A(ppRef) non-zero in that pT sector.
-
-The double ratio is also an option, even to plot on the same canvas, since it uses the same pT binning as the asymmetry A.
-
-The other observable we have in hand is the event-by-event relative difference in pT between the two muons, namely
-
-            ΔpT = (pT(mu+) - pT(mu-)) / (pT(mu+) + pT(mu-)).
-
-This could be a valuable observable, but it needs to be treated with care.
-A particularly natural observable would be like 
-
-            <ΔpT(PbPb)> - <ΔpT(ppRef)>,
-
-where the mean is calculated per centrality bin.
-
-*/
 
 //---Libraries
 #include <TFile.h>
@@ -111,9 +25,9 @@ where the mean is calculated per centrality bin.
 
 
 //---Macro settings
-std::string plot_extension = ".png"; // ".png" for regular development and ".pdf" for final quality plots
-std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
-//std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
+std::string plot_extension = ".pdf"; // ".png" for regular development and ".pdf" for final quality plots
+//std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
+std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
 
 
 //Good selection threshold values
@@ -199,93 +113,198 @@ Dataset datasets[] = {
 };
 
 //Centrality bins for PbPb2024 data
-std::vector<std::pair<int, int>> CentralitySet = {
-    {0, 10},
-    {10, 20},
-    {20, 30},
-    {30, 100}
+std::vector<std::pair<double, double>> CentralitySet = {
+    {0., 10.},
+    {10., 20.},
+    {20., 30.},
+    {30., 100.},
+    {0., 100.}
 };
 
-//Vector with ppRef values. Zcount, Mean, MeanError, Variance. Only diff to the result vector is that on the latter we have cent bin string as first element.
-std::vector<std::tuple<int, double, double, double>> ppRefResults; 
+/*std::vector<std::pair<double, double>> CentralitySet = {
+    {0., 10.},
+    {10., 30.},
+    {30., 50.},
+    {50., 100.}
+};*/
 
-//Vector of 5-tuples with PbPb centrality bin values.
-std::vector<std::tuple<std::string, int, double, double, double>> PbPbResults;
+//A struct is better to organize results in this case.
+struct PtRelDiffResult {
+    std::string centralityBinStr; // For PbPb2024 dataset
+    Long64_t Zcount;
+    double mean;
+    double meanError;
+    double variance;
+    double skewness;
+};
 
-//Vector of 5-tuples with final results.
-std::vector<std::tuple<std::string, int, double, double, double>> Results;
-
+//Vectors to store the results of the PtRelDiff calculation for ppRef and PbPb datasets.
+std::vector<PtRelDiffResult> ppRefResults; //dummy string, n, mean, meanError, variance, skewness.
+std::vector<PtRelDiffResult> PbPbResults; //centralityBinStr, n, mean, meanError, variance, skewness.
+std::vector<PtRelDiffResult> FinalResults; //centralityBinStr, n, mean, meanError, variance, skewness.
 
 //---Function declarations
-void CalculatePtRelativeDiff(const Dataset& dataset, std::pair<int, int> centralityBins);
+void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double highCent);
 void PlotPtRelativeDiff();
+void PrintStatistics();
 
 //---Main function
 void PtRelDiff_FROMTREE(){
 
+    gROOT->SetBatch(kTRUE);
     ppRefResults.clear();
     PbPbResults.clear();
-    Results.clear();
+    FinalResults.clear();
 
-    // The centrality argument is irrelevant for ppRef dataset. 
-    CalculatePtRelativeDiff(datasets[2], {0, 100});
+    //Calculate PtRelDiff for ppRef2024 dataset.
+    CalculatePtRelativeDiff(datasets[2], 0., 100.); //ppRef2024 dataset.
 
+    //Now for PbPb2024 dataset. Loop over centrality bins. 
     for(const auto& centralityBin : CentralitySet){
         std::cout << "\nCalculating PtRelDiff_PbPb for centrality bin: " << centralityBin.first << "-" << centralityBin.second << "%\n";
-        CalculatePtRelativeDiff(datasets[1], centralityBin); //PbPb2024 dataset
+        CalculatePtRelativeDiff(datasets[1], centralityBin.first, centralityBin.second); //PbPb2024 dataset
     }
 
+    //Plot the final results.
     PlotPtRelativeDiff();
 
-    //Print results to file
-    std::ofstream outFile("PtRelDiffResults.dat");
-    outFile << "# CentralityBin Z-count Mean MeanError Variance\n";
-    outFile << std::setprecision(17);
+    //Print statistics for comparison with binned approach.
+    PrintStatistics();
+}
 
-    for (const auto& result : Results) {
-        outFile << std::get<0>(result) << '\t'
-                << std::get<1>(result) << '\t'
-                << std::get<2>(result) << '\t'
-                << std::get<3>(result) << '\t'
-                << std::get<4>(result) << '\n';
+void PrintStatistics(){
+
+    std::cout << std::scientific << std::setprecision(10);
+
+    // ============================================================
+    // ppRef
+    // ============================================================
+
+    std::cout << "\n\n";
+    std::cout << "============================================================\n";
+    std::cout << "ppRef 2024 - FROM TREE\n";
+    std::cout << "============================================================\n";
+
+    if(ppRefResults.empty()){
+        std::cout << "No ppRef results available.\n";
+    }
+    else{
+
+        const auto& result = ppRefResults[0];
+
+        std::cout
+            << "Z count     = " << result.Zcount    << "\n"
+            << "Mean        = " << result.mean      << "\n"
+            << "Mean error  = " << result.meanError << "\n"
+            << "Variance    = " << result.variance  << "\n"
+            << "Skewness    = " << result.skewness  << "\n";
     }
 
-    outFile.close();
+
+    // ============================================================
+    // PbPb
+    // ============================================================
+
+    std::cout << "\n";
+    std::cout << "============================================================\n";
+    std::cout << "PbPb 2024 - FROM TREE\n";
+    std::cout << "============================================================\n";
+
+    std::cout
+        << std::left
+        << std::setw(14) << "Centrality"
+        << std::setw(14) << "Z count"
+        << std::setw(20) << "Mean"
+        << std::setw(20) << "Mean error"
+        << std::setw(20) << "Variance"
+        << std::setw(20) << "Skewness"
+        << "\n";
+
+    std::cout << std::string(108, '-') << "\n";
+
+    for(const auto& result : PbPbResults){
+
+        std::cout
+            << std::left
+            << std::setw(14) << result.centralityBinStr
+            << std::setw(14) << result.Zcount
+            << std::setw(20) << result.mean
+            << std::setw(20) << result.meanError
+            << std::setw(20) << result.variance
+            << std::setw(20) << result.skewness
+            << "\n";
+    }
+
+
+    // ============================================================
+    // Final observable
+    // ============================================================
+
+    std::cout << "\n";
+    std::cout << "============================================================\n";
+    std::cout << "FINAL OBSERVABLE - FROM TREE\n";
+    std::cout << "<PtRelDiff>_PbPb - <PtRelDiff>_ppRef\n";
+    std::cout << "============================================================\n";
+
+    std::cout
+        << std::left
+        << std::setw(14) << "Centrality"
+        << std::setw(14) << "Z count"
+        << std::setw(20) << "Delta mean"
+        << std::setw(20) << "Mean error"
+        << std::setw(20) << "Var(delta)"
+        << std::setw(20) << "Delta skew."
+        << "\n";
+
+    std::cout << std::string(108, '-') << "\n";
+
+    for(const auto& result : FinalResults){
+
+        std::cout
+            << std::left
+            << std::setw(14) << result.centralityBinStr
+            << std::setw(14) << result.Zcount
+            << std::setw(20) << result.mean
+            << std::setw(20) << result.meanError
+            << std::setw(20) << result.variance
+            << std::setw(20) << result.skewness
+            << "\n";
+    }
+
+    std::cout << "\n";
+
 }
 
 void PlotPtRelativeDiff(){
 
     //Before the actual plot we have to take the difference of PbPb values from ppRef values.
-    for (size_t i = 0; i < PbPbResults.size(); ++i) { //Index of mean = 2 and meanerror = 3 in PbPb vector. i-1 for ppref vector.
+    const auto& ppRefResult = ppRefResults[0];
+    PtRelDiffResult finalResult;
 
+    for (size_t i = 0; i < PbPbResults.size(); ++i) {
         const auto& PbPbResult = PbPbResults[i];
-        const auto& ppRefResult = ppRefResults[i];
-
-        std::string centralityBinStr = std::get<0>(PbPbResult);
-        int Zcount = std::get<1>(PbPbResult);
-        double meanDiff = std::get<2>(PbPbResult) - std::get<1>(ppRefResult); //Mean difference
-        double meanErrorDiff = std::sqrt(std::pow(std::get<3>(PbPbResult), 2) + std::pow(std::get<2>(ppRefResult), 2)); //Mean error difference
-        double varianceDiff = std::get<4>(PbPbResult) - std::get<3>(ppRefResult); //Variance difference
-
-        //Make 5-tuple
-        std::tuple<std::string, int, double, double, double> resultTuple(centralityBinStr, Zcount, meanDiff, meanErrorDiff, varianceDiff);
-        Results.push_back(resultTuple);
+        finalResult.centralityBinStr = PbPbResult.centralityBinStr;
+        finalResult.Zcount = PbPbResult.Zcount;
+        finalResult.mean = PbPbResult.mean - ppRefResult.mean;
+        finalResult.meanError = std::sqrt(std::pow(PbPbResult.meanError, 2) + std::pow(ppRefResult.meanError, 2));
+        finalResult.variance = finalResult.meanError * finalResult.meanError;
+        finalResult.skewness = PbPbResult.skewness - ppRefResult.skewness;
+        FinalResults.push_back(finalResult);
     }
-
 
     //Values for TGraphErrors are just mean diff and mean error diff so
     std::vector<double> xValues, yValues, xErrors, yErrors;
     int idx = 0;
-    for (const auto& result : Results) {
-        std::string centralityBinStr = std::get<0>(result);
-        double meanDiff = std::get<2>(result);
-        double meanErrorDiff = std::get<3>(result);
-        float x_centrality = (CentralitySet[idx].second + CentralitySet[idx].first) / 2.0; // Midpoint of the centrality bin
+    for (const auto& result : FinalResults) {
+        double lowCent = CentralitySet[idx].first;
+        double highCent = CentralitySet[idx].second;
+        double centralityBinCenter = (lowCent + highCent) / 2.0;
 
-        xValues.push_back(x_centrality);
-        yValues.push_back(meanDiff);
-        xErrors.push_back(0.5 * (CentralitySet[idx].second - CentralitySet[idx].first)); // Half-width of the centrality bin
-        yErrors.push_back(meanErrorDiff);
+        xValues.push_back(centralityBinCenter);
+        yValues.push_back(result.mean);
+        xErrors.push_back((highCent - lowCent) / 2.0); // Half-width of the centrality bin
+        yErrors.push_back(result.meanError);
+
         ++idx;
     }
 
@@ -294,14 +313,50 @@ void PlotPtRelativeDiff(){
     basicGraphFormatting(graph);
 
     //Plot
-    TCanvas* canvas = new TCanvas("canvas", "Pt Relative Difference vs Centrality", 800, 600);
+    TCanvas* c = new TCanvas("c", "Pt Relative Difference FROMTREE vs Centrality", 800, 600);
+    basicCanvasFormatting(c);
+    c->SetLeftMargin(0.14);
+
+    //Format graph.
+    graph->SetMarkerStyle(21);
+    graph->SetMarkerSize(1.0);
+    graph->SetMarkerColor(kRed+1);
+    graph->SetLineColor(kRed+1);
+    graph->SetLineWidth(2);
+
+    //Axes configurations
+    graph->GetXaxis()->SetLimits(0, 100);
+    graph->GetXaxis()->SetTitle("Centrality (%)");
+    graph->GetYaxis()->SetTitle("#LT#Delta p_{T}^{rel}#GT_{PbPb} - #LT#Delta p_{T}^{rel}#GT_{ppRef}");
+    graph->GetYaxis()->CenterTitle(true);
+    graph->GetYaxis()->SetTitleOffset(1.3);
+
     graph->Draw("AP");
 
-    canvas->SaveAs("output.png");
+    //Grey line at y=0
+    TLine* line = new TLine(graph->GetXaxis()->GetXmin(), 0.0, graph->GetXaxis()->GetXmax(), 0.0);
+    line->SetLineColor(kGray);
+    line->SetLineStyle(7);
+    line->SetLineWidth(2);
+    line->Draw();
 
+    drawLatexText("#bf{CMS}", 0.12, 0.93, 0.042);
+    drawLatexText("#it{Work in Progress}", 0.2, 0.93, 0.033);
+    drawLatexText("PbPb 2024, ppRef 2024 (5.36 TeV)", 0.6, 0.93, 0.033);
+    
+    //Plot specifications
+    drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.2, 0.75, 0.03);
+    drawLatexText("60 < M_{#mu #mu} < 120 GeV", 0.2, 0.7, 0.03);
+
+    c->Update();
+    std::string outputName = "DeltaPtRelDiff_vs_Centrality_FROMTREE" + plot_extension;
+    c->SaveAs(outputName.c_str());
+
+    delete graph;
+    delete c;
 }
 
-void CalculatePtRelativeDiff(const Dataset& dataset, std::pair<int, int> centralityBins){
+void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double highCent){
 
     // Load root file.
     std::string fullPath = dataset.basePath + dataset.filePattern;
@@ -395,8 +450,6 @@ void CalculatePtRelativeDiff(const Dataset& dataset, std::pair<int, int> central
 
 
     //Event-level cut values.
-    const float minCentrality = 2.*centralityBins.first;
-    const float maxCentrality = 2.*centralityBins.second;
     const double maxZvtx = MAX_ZVTX;
 
     //Z-level cut values.
@@ -418,10 +471,15 @@ void CalculatePtRelativeDiff(const Dataset& dataset, std::pair<int, int> central
     //Trigger selection: 'L2SingleMu12'.
     ULong64_t triggerBit = 1ULL << 7;
 
+    //Centrality interval for PbPb2024 dataset. For ppRef2024 dataset, this is ignored.
+    const float minCentrality = 2.*lowCent;
+    const float maxCentrality = 2.*highCent;
+
     //Helpers to calculate mean of PtRelDiff event-by-event.
     Long64_t n = 0;
     double mean = 0;
     double M2 = 0;
+    double M3 = 0;
 
     for(Long64_t i = 0; i < nEvents; ++i){//Loop through all EVENTS in the CHAIN.
 
@@ -481,14 +539,20 @@ void CalculatePtRelativeDiff(const Dataset& dataset, std::pair<int, int> central
 
             //Cesar pointed out that a measure of PtRelDiff from a histogram may introduce a bias because of the binning.
             //Thus, we will calculate the PtRelDiff event-by-event, and calculate its mean without binning it.
-            //We just need to study exactly how to best calculate the mean or another representative variable of the distribution.
             //Calculate mean, standard deviation and skewness.
 
-            ++n;
             double x = Reco_Dimuon_muonPtRelDiff->at(j);
-            double Delta = x - mean;
-            mean += Delta / n;
-            M2 += Delta * (x - mean);
+            
+            Long64_t n_old = n;
+            ++n;
+
+            double delta = x - mean;
+            double delta_n = delta/n;
+            double term1 = delta*delta_n*n_old;
+
+            M3 += (term1 * delta_n * (n - 2) - 3.0 * delta_n * M2);
+            M2 += term1;
+            mean += delta_n;
 
         }//End of dimuon candidate loop.
 
@@ -509,20 +573,35 @@ void CalculatePtRelativeDiff(const Dataset& dataset, std::pair<int, int> central
 
     double variance = M2 / (n - 1);
     double meanError = std::sqrt(variance / n);
+    double skewness = std::sqrt(static_cast<double>(n))*M3/std::pow(M2, 1.5);
 
+    PtRelDiffResult result;
     if(dataset.system == CollisionSystem::PbPb2024){
         //Centrality to string
-        std::string centralityBinStr = std::to_string(centralityBins.first) + "-" + std::to_string(centralityBins.second);
+        std::string centString = std::to_string(static_cast<int>(lowCent)) + "-" + std::to_string(static_cast<int>(highCent));
 
-        //Make 4-tuple
-        std::tuple<std::string, int, double, double, double> PbPbresultTuple(centralityBinStr, n, mean, meanError, variance);
-        PbPbResults.push_back(PbPbresultTuple);
+        result.centralityBinStr = centString;
+        result.Zcount = n;
+        result.mean = mean;
+        result.meanError = meanError;
+        result.variance = variance;
+        result.skewness = skewness;
+
+        PbPbResults.push_back(result);
     }
 
     else {
         //Store ppRef results on its own vector.
-        std::tuple<int, double, double, double> ppRefResultTuple(n, mean, meanError, variance);
-        ppRefResults.push_back(ppRefResultTuple);
+        std::string dummyString = "ppRef";
+
+        result.centralityBinStr = dummyString;
+        result.Zcount = n;
+        result.mean = mean;
+        result.meanError = meanError;
+        result.variance = variance;
+        result.skewness = skewness;
+        ppRefResults.push_back(result);
     }
 
+    delete chain;
 }

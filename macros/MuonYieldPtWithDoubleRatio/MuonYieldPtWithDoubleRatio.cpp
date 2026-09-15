@@ -26,6 +26,7 @@ Double ratio.
 #include <cmath>
 #include <TVector2.h>
 #include <algorithm>
+#include <TF1.h>
 #include "../headers/basicFormatting.h"
 
 
@@ -43,6 +44,7 @@ double MAXZ_MASS = 120.;
 double RAPIDITYCUTVALUE = 2.4;
 double ETACUTVALUE = 2.4;
 double PTCUTVALUE = 20.;
+double PTUPPERLIMIT = 70.; //For Chi2 test, to void low statistics points.
 
 // ##############################################################################
 // ##############################################################################
@@ -135,6 +137,7 @@ std::vector<std::pair<double, double>> CentralityBinsSet = {
 //*/
 
 void MuonPtMuPlMuMiHistWithDoubleRatio(TFile* inputFile, const Dataset& dataset, const Dataset& ref_dataset, double lowCent = 0., double highCent = 100.);
+std::tuple<int, double, double> MakeChi2Test(const TH1D* histRatio);
 
 void MuonYieldPtWithDoubleRatio(){
 
@@ -207,45 +210,54 @@ void MuonPtMuPlMuMiHistWithDoubleRatio(TFile* inputFile, const Dataset& dataset,
 
     //Top pad. pT distributions of mu+ and mu- for both datasets.
     pad1->cd();
-    basicPaddedHistFormatting(h_PtMuPl, false);
-    basicPaddedHistFormatting(h_PtMuMi, false);
-    basicPaddedHistFormatting(h_RefPl, false);
-    basicPaddedHistFormatting(h_RefMi, false);
+
+    //We need to manipulate clones of the histograms since we normalize them before doing the ratio.
+    //By normalizing only 'plot versions' of the histograms, we avoid that.
+    //Clone histograms for plotting.
+    TH1D* h_PtMuPl_plot = dynamic_cast<TH1D*>(h_PtMuPl->Clone("h_PtMuPl_plot"));
+    TH1D* h_PtMuMi_plot = dynamic_cast<TH1D*>(h_PtMuMi->Clone("h_PtMuMi_plot"));
+    TH1D* h_RefPl_plot = dynamic_cast<TH1D*>(h_RefPl->Clone("h_RefPl_plot"));
+    TH1D* h_RefMi_plot = dynamic_cast<TH1D*>(h_RefMi->Clone("h_RefMi_plot"));
+
+    basicPaddedHistFormatting(h_PtMuPl_plot, false);
+    basicPaddedHistFormatting(h_PtMuMi_plot, false);
+    basicPaddedHistFormatting(h_RefPl_plot, false);
+    basicPaddedHistFormatting(h_RefMi_plot, false);
 
     //Normalize histograms to unit area for comparison.
-    h_PtMuPl->Scale(1.0 / h_PtMuPl->Integral());
-    h_PtMuMi->Scale(1.0 / h_PtMuMi->Integral());
-    h_RefPl->Scale(1.0 / h_RefPl->Integral());
-    h_RefMi->Scale(1.0 / h_RefMi->Integral());
+    h_PtMuPl_plot->Scale(1.0 / h_PtMuPl_plot->Integral());
+    h_PtMuMi_plot->Scale(1.0 / h_PtMuMi_plot->Integral());
+    h_RefPl_plot->Scale(1.0 / h_RefPl_plot->Integral());
+    h_RefMi_plot->Scale(1.0 / h_RefMi_plot->Integral());
 
     //Reference histograms with points
-    h_RefPl->SetFillStyle(0);
-    h_RefPl->SetMarkerStyle(22);
-    h_RefPl->SetMarkerSize(0.75);
-    h_RefPl->SetMarkerColorAlpha(kRed, 1.);
+    h_RefPl_plot->SetFillStyle(0);
+    h_RefPl_plot->SetMarkerStyle(22);
+    h_RefPl_plot->SetMarkerSize(0.75);
+    h_RefPl_plot->SetMarkerColorAlpha(kRed, 1.);
 
-    h_RefMi->SetFillStyle(0);
-    h_RefMi->SetMarkerStyle(24);
-    h_RefMi->SetMarkerSize(0.75);
-    h_RefMi->SetMarkerColorAlpha(kBlue, 1.);
+    h_RefMi_plot->SetFillStyle(0);
+    h_RefMi_plot->SetMarkerStyle(24);
+    h_RefMi_plot->SetMarkerSize(0.75);
+    h_RefMi_plot->SetMarkerColorAlpha(kBlue, 1.);
 
-    h_RefPl->GetXaxis()->SetTitle("p_{T} [GeV/c]");
-    h_RefPl->GetYaxis()->SetTitle("Normalized Yield");
-    h_RefPl->GetXaxis()->SetRangeUser(18., 100.);
-    h_RefPl->GetYaxis()->SetTitleOffset(1.);
+    h_RefPl_plot->GetXaxis()->SetTitle("p_{T} [GeV/c]");
+    h_RefPl_plot->GetYaxis()->SetTitle("Normalized Yield");
+    h_RefPl_plot->GetXaxis()->SetRangeUser(18., 100.);
+    h_RefPl_plot->GetYaxis()->SetTitleOffset(1.);
 
-    h_RefPl->Draw("HIST P");
-    h_RefMi->Draw("HIST P SAME");
+    h_RefPl_plot->Draw("HIST P");
+    h_RefMi_plot->Draw("HIST P SAME");
 
     //Filling histogram with PbPb values. No border.
-    auto* fillPl = static_cast<TH1*>(h_PtMuPl->Clone("h_fill"));
+    auto* fillPl = static_cast<TH1*>(h_PtMuPl_plot->Clone("h_fill"));
     fillPl->SetDirectory(nullptr);
     fillPl->SetFillStyle(1001);
     fillPl->SetFillColorAlpha(kRed-10, 0.6);
     fillPl->SetLineColorAlpha(kRed-10, 0.0);
     fillPl->Draw("HIST ][ SAME");
 
-    auto* fillMi = static_cast<TH1*>(h_PtMuMi->Clone("h_fill"));
+    auto* fillMi = static_cast<TH1*>(h_PtMuMi_plot->Clone("h_fill"));
     fillMi->SetDirectory(nullptr);
     fillMi->SetFillStyle(1001);
     fillMi->SetFillColorAlpha(kBlue-10, 0.6);
@@ -262,12 +274,13 @@ void MuonPtMuPlMuMiHistWithDoubleRatio(TFile* inputFile, const Dataset& dataset,
     basicLegendFormatting(leg);
     leg->AddEntry(fillPl, "p_{T}(#mu^{+})", "f");
     leg->AddEntry(fillMi, "p_{T}(#mu^{-})", "f");
-    leg->AddEntry(h_RefPl, "p_{T}(#mu^{+}) ppRef", "p");
-    leg->AddEntry(h_RefMi, "p_{T}(#mu^{-}) ppRef", "p");
+    leg->AddEntry(h_RefPl_plot, "p_{T}(#mu^{+}) ppRef", "p");
+    leg->AddEntry(h_RefMi_plot, "p_{T}(#mu^{-}) ppRef", "p");
     leg->Draw();
     pad1->Update();
 
     //Bottom pad. Ratio of pT distributions of mu+ and mu-.
+    //Bottom pad histograms are calculated using the original histograms, not the normalized ones.
     pad2->cd();
 
     TH1D* histRatio = new TH1D("histRatio", "histRatio", h_PtMuPl->GetNbinsX(), h_PtMuPl->GetXaxis()->GetXmin(), h_PtMuPl->GetXaxis()->GetXmax());
@@ -310,7 +323,7 @@ void MuonPtMuPlMuMiHistWithDoubleRatio(TFile* inputFile, const Dataset& dataset,
 
         double doubleRatio = PbPbratio / refRatio;
         double doubleRatioIndError = doubleRatio * std::sqrt(
-            std::pow(PbPbratioError_completeCorr/PbPbratio, 2) + std::pow(refRatioError_completeCorr/refRatio, 2));
+            std::pow(PbPbratioError_completeCorr/PbPbratio, 2) + std::pow(refRatioError_completeCorr/refRatio, 2));//Independent error propagation.
 
         histRatio->SetBinContent(i, doubleRatio);
         histRatio->SetBinError(i, doubleRatioIndError);
@@ -352,12 +365,17 @@ void MuonPtMuPlMuMiHistWithDoubleRatio(TFile* inputFile, const Dataset& dataset,
     leg2->Draw();
     pad2->Update();
 
+    //Perform a Chi2 test to see if the double ratio is compatible with 1.0.
+    auto [ndf, chi2, pValue] = MakeChi2Test(histRatio);
+
     //Back to the canvas.
     c->cd();
     drawLatexText("#bf{CMS}", 0.11, 0.96, 0.035);
     drawLatexText("#it{Work in Progress}", 0.2, 0.96, 0.025);
     drawLatexText("PbPb 2024, ppRef 2024", 0.7, 0.96, 0.025);
-    
+    drawLatexText(Form("#chi^{2}/ndf = %.2f/%d", chi2, ndf), 0.67, 0.72, 0.022);
+    drawLatexText(Form("p-value = %.2f", pValue), 0.67, 0.69, 0.022);
+
     //Save
     std::string centString = Form("_Cent%.0f-%.0f", lowCent, highCent);
     std::string output = "MuonPtMuPlMuMiHistWithDoubleRatio" + centString + plot_extension;
@@ -368,5 +386,43 @@ void MuonPtMuPlMuMiHistWithDoubleRatio(TFile* inputFile, const Dataset& dataset,
     delete h_PtMuMi;
     delete histRatio;
     delete line;
+    delete leg;
+    delete leg2;
     delete c;
+}
+
+std::tuple<int, double, double> MakeChi2Test(const TH1D* histRatio){
+
+    double ptMin = PTCUTVALUE;
+    double ptMax = PTUPPERLIMIT;
+
+    TF1* nullHypothesis = new TF1("nullHypothesis","1.0",ptMin,ptMax);
+
+    double chi2 = histRatio->Chisquare(nullHypothesis, "R");
+
+    int ndf = 0;
+    //Count the number of bins with non-zero content and within the pT range of interest to determine the degrees of freedom.
+    for(int i = 1; i <= histRatio->GetNbinsX(); ++i){
+        if(histRatio->GetBinContent(i) == 0.0)
+            continue;
+        double x = histRatio->GetBinCenter(i);
+        if(x < ptMin || x > ptMax)
+            continue;
+        if(histRatio->GetBinError(i) <= 0.0)
+            continue;
+        ndf++;
+    }
+
+    //Calculate the p-value from the Chi2 and ndf.
+    double pValue = TMath::Prob(chi2, ndf);
+    
+    std::cout
+    << "Null hypothesis: R = 1" << std::endl
+    << "chi2 = " << chi2 << std::endl
+    << "ndf = " << ndf << std::endl
+    << "chi2/ndf = " << chi2 / ndf << std::endl
+    << "p-value = " << pValue << std::endl;
+
+    delete nullHypothesis;
+    return {ndf, chi2, pValue};
 }

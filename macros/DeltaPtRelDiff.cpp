@@ -81,7 +81,7 @@ void MakeNormalizedDistPtRelDiff_PbPb_vs_ppRef_CentBin(TFile* inputFile, double 
 void PlotDeltaPt_vsCentralityBin();
 
 //---Main()
-void DeltaPtRelDiffObs(){
+void DeltaPtRelDiff(){
 
     DeltaPtAndError.clear();
 
@@ -91,7 +91,6 @@ void DeltaPtRelDiffObs(){
     MakeNormalizedDistPtRelDiff_PbPb_vs_ppRef_0_100(inputFile);
 
     for(const auto& centBin : CentralityBinsSet){
-    
         double lowCent = centBin.first;
         double highCent = centBin.second;
         std::cout << "Processing Centrality bin: " << lowCent << "-" << highCent << "%" << std::endl;
@@ -99,7 +98,7 @@ void DeltaPtRelDiffObs(){
         MakeNormalizedDistPtRelDiff_PbPb_vs_ppRef_CentBin(inputFile, lowCent, highCent);
     }
 
-    PlotDeltaPt_vsCentralityBin();
+    //PlotDeltaPt_vsCentralityBin();
 
     inputFile->Close();
 }
@@ -220,12 +219,17 @@ void MakeNormalizedDistPtRelDiff_PbPb_vs_ppRef_CentBin(TFile* inputFile, double 
     double DeltaPtError = std::sqrt(std::pow(PbPb_mean_error, 2) + std::pow(ppRef_mean_error, 2)); //NEEDS REVIEW. MEASUREMENT MAY BE CORRELATED.
     DeltaPtAndError.push_back(std::make_pair(DeltaPt, DeltaPtError));
 
+    //Print results to terminal. Temporary.
+    std::cout << "\n> Results for centrality bin " << centString << "%:\n";
+    std::cout << "  PbPb Mean: " << PbPb_mean << " #pm " << PbPb_mean_error << "\n";
+    std::cout << "  ppRef Mean: " << ppRef_mean << " #pm " << ppRef_mean_error << "\n";
+    std::cout << "  DeltaPt: " << DeltaPt << " #pm " << DeltaPtError << "\n";
 
     //Begin normalization and stuff
     h_PbPb->Scale(1.0 / h_PbPb->Integral());
     h_ppRef->Scale(1.0 / h_ppRef->Integral());
 
-
+    //
     TCanvas* c = new TCanvas("c", "c", 800, 600);
     basicCanvasFormatting(c);
 
@@ -307,10 +311,31 @@ void MakeNormalizedDistPtRelDiff_PbPb_vs_ppRef_0_100(TFile* inputFile){
 
     
     //Statistics calculation
+    //Mean and error
     double PbPb_mean = h_PbPb->GetMean();
     double PbPb_mean_error = h_PbPb->GetMeanError();
     double ppRef_mean = h_ppRef->GetMean();
     double ppRef_mean_error = h_ppRef->GetMeanError();
+
+    //Std dev and error
+    double PbPb_stddev = h_PbPb->GetStdDev();
+    double PbPb_stddev_error = h_PbPb->GetStdDevError();
+    double ppRef_stddev = h_ppRef->GetStdDev();
+    double ppRef_stddev_error = h_ppRef->GetStdDevError();
+
+    //Skewness and error
+    double PbPb_skewness = h_PbPb->GetSkewness();
+    double PbPb_skewness_error = h_PbPb->GetSkewnessError(11);
+    double ppRef_skewness = h_ppRef->GetSkewness();
+    double ppRef_skewness_error = h_ppRef->GetSkewnessError(11);
+
+    
+    //Print statistics results. Centrality 0-100% in this case.
+    std::cout << "\n> Results for centrality bin 0-100%:\n";
+    std::cout << "  PbPb Mean: " << PbPb_mean << " #pm " << PbPb_mean_error << "\n";
+    std::cout << "  ppRef Mean: " << ppRef_mean << " #pm " << ppRef_mean_error << "\n";
+    std::cout << "  DeltaPt: " << (PbPb_mean - ppRef_mean) << " #pm " << std::sqrt(std::pow(PbPb_mean_error, 2) + std::pow(ppRef_mean_error, 2)) << "\n";
+
 
     //Begin normalization and stuff
     h_PbPb->Scale(1.0 / h_PbPb->Integral());
