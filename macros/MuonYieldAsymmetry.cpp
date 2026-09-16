@@ -28,7 +28,7 @@
 std::string plot_extension = ".pdf"; // ".png" for regular development and ".pdf" for final quality plots
 double delta = 1e-6; //Small value to avoid binning issues when projecting histograms.
 double fitMin = 40.; //Minimum x-value for the fit range of the asymmetry histogram.
-double fitMax = 60.; //Maximum x-value for the fit range of the asymmetry histogram.
+double fitMax = 65.; //Maximum x-value for the fit range of the asymmetry histogram.
 
 // ##############################################################################
 // ##############################################################################
@@ -74,9 +74,6 @@ void MuonYieldAsymmetry(){
         MakeAsymmetryHist_PbPb(inputFile, lowCent, highCent);
     }
 
-    //Now we can plot the histograms in AsymmetryHists vector in different ways.
-    //The one i'm choosing for the current version of this macro is to plot ONLY the constant b of the FIT
-    //that will be made on the asymmetry histogram.
     PlotAsymmetry_vs_Centrality();
 
     inputFile->Close();
@@ -99,6 +96,7 @@ void PlotAsymmetry_vs_Centrality(){
         double lowCent = CentralityBinsSet[i].first;
         double highCent = CentralityBinsSet[i].second;
 
+        //Perform a constant fit.
         TF1* constantFit = new TF1(Form("constantFit_%d_%d", (int)lowCent, (int)highCent),"pol0",fitMin, fitMax);
         hist->Fit(constantFit, "RQ"); //Quiet fit
 
@@ -111,38 +109,112 @@ void PlotAsymmetry_vs_Centrality(){
         meanAsymmetryErrors.push_back(meanError);
     }
 
+
     //2- Make the TGraphErrors for mean asymmetry vs centrality.
     int nPoints = meanAsymmetryValues.size();
+    if(nPoints != CentralityBinsSet.size()){
+            std::cerr << "Error: Number of points in PeakDifferenceAndError does not match number of centrality bins." << std::endl;
+            return;
+    }
+
     std::vector<double> xValues(nPoints);
     std::vector<double> xErrors(nPoints);
     std::vector<double> yValues(nPoints);
     std::vector<double> yErrors(nPoints);
 
     for(int i = 0; i < nPoints; ++i){
+        xValues[i] = i + 1;
+        xErrors[i] = 0.;
+        yValues[i] = meanAsymmetryValues[i];
+        yErrors[i] = meanAsymmetryErrors[i];
+    }
+    
+    //This block is outdated because i opted to plot with cBins as x-coordinates.
+    /*for(int i = 0; i < nPoints; ++i){
         xValues[i] = (CentralityBinsSet[i].first + CentralityBinsSet[i].second) / 2.0; //Centrality bin center
         xErrors[i] = (CentralityBinsSet[i].second - CentralityBinsSet[i].first) / 2.0; //Half-width of the centrality bin
         yValues[i] = meanAsymmetryValues[i];
-        yErrors[i] = 0.;
-
-        std::cout << "> Centrality bin: " << CentralityBinsSet[i].first << " - " << CentralityBinsSet[i].second
-                  << ", Mean Asymmetry: " << yValues[i] << " ± " << yErrors[i] << std::endl;
-    }
-
+        yErrors[i] = meanAsymmetryErrors[i];
+    }*/
 
     TGraphErrors* graph = new TGraphErrors(nPoints, xValues.data(), yValues.data(), xErrors.data(), yErrors.data());
     basicGraphFormatting(graph);
 
     TCanvas* c = new TCanvas("c", "Muon Yield Asymmetry vs Centrality", 800, 600);
     basicCanvasFormatting(c);
+    c->SetLeftMargin(0.13);
 
+    //Frame TH1 helper to set the x-axis labels for centrality bins.
+    TH1D* frame = new TH1D("frame","",nPoints,0.5,nPoints + 0.5);
+    basicHistFormatting(frame);
+    for(int i = 0; i < nPoints; ++i){
+        std::string label = Form("%.0f-%.0f%%", CentralityBinsSet[i].first, CentralityBinsSet[i].second);
+        frame->GetXaxis()->SetBinLabel(i + 1,label.c_str());
+    }
+
+    //Give range information to new frame histogram:
+    double yMin = yValues[0] - yErrors[0];
+    double yMax = yValues[0] + yErrors[0];
+    for(int i = 1; i < nPoints; ++i){
+        yMin = std::min(yMin,yValues[i] - yErrors[i]);
+        yMax = std::max(yMax,yValues[i] + yErrors[i]);
+    }
+    double yRange = yMax - yMin;
+    yMin -= 0.20 * yRange;
+    yMax += 0.20 * yRange;
+    
+    //Make sure zero is visible:
+    yMin = std::min(yMin, 0.0);
+    yMax = std::max(yMax, 0.0);
+    frame->SetMinimum(yMin);
+    frame->SetMaximum(yMax);
+    //
+
+    frame->GetXaxis()->SetTickLength(0.0);
+    frame->GetXaxis()->SetTitle("Centrality bin");
+    frame->GetYaxis()->SetTitle("#LT #Delta A(p_{T}) #GT_{fit}");
+    frame->GetYaxis()->SetTitleOffset(1.4);
+
+    //Draw only the axis frame.
+    frame->Draw("AXIS");
+
+        //Format graph.
     graph->SetMarkerStyle(21);
-    graph->SetMarkerSize(1.2);
-    graph->Draw("AP");
+    graph->SetMarkerSize(0.9);
+    graph->SetMarkerColorAlpha(kRed+1, 1.);
+    graph->SetLineColorAlpha(kRed-7, 0.8);
+    graph->SetLineWidth(2);
+
+    //Axes configurations. Obsolete.
+    //graph->GetXaxis()->SetLimits(0, 100);
+    //graph->GetXaxis()->SetTitle("Centrality (%)");
+    //graph->GetYaxis()->SetTitle("#Delta p^{PbPb}_{T,peak} - #Delta p^{ppRef}_{T,peak} [GeV/c]");
+    //graph->GetYaxis()->SetTitleOffset(1.3);
+    
+    //Draw
+    graph->Draw("P SAME");
+
+    //Grey line at y=0
+    TLine* line = new TLine(0.5, 0.0, 0.5+nPoints, 0.0);
+    line->SetLineColor(kGray);
+    line->SetLineStyle(7);
+    line->SetLineWidth(2);
+    line->Draw();
+
+    drawLatexText("#bf{CMS}", 0.12, 0.93, 0.042);
+    drawLatexText("#it{Work in Progress}", 0.2, 0.93, 0.033);
+    drawLatexText("PbPb 2024, ppRef 2024 (5.36 TeV)", 0.6, 0.93, 0.033);
+    
+    //Plot specifications
+    drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.22, 0.22, 0.03);
+    drawLatexText("60 < M_{#mu#mu} < 120 GeV", 0.22, 0.17, 0.03);
 
     c->Update();
-    std::string outputName = "MuonYieldAsymmetry_vs_Centrality" + plot_extension;
+    std::string outputName = "Asymmetry_vs_Centrality" + plot_extension;
     c->SaveAs(outputName.c_str());
 
+    delete frame;
+    delete line;
     delete graph;
     delete c;
 }
@@ -169,16 +241,14 @@ void MakeAsymmetryHist_PbPb(TFile* inputFile, double lowCent, double highCent){
         double N_minus = h1D_PtMuMi->GetBinContent(i);
         if(N_plus + N_minus == 0){
             h1D_Asymmetry_ppRef->SetBinContent(i, 0.); //Avoid division by zero
+            h1D_Asymmetry_ppRef->SetBinError(i, 0.);
             continue;
         }
-        double asymmetry = (N_plus - N_minus) / (N_plus + N_minus);
-
-        //Error propagation for asymmetry calculation
-        double var_plus  = N_plus;
-        double var_minus = N_minus;
         double denominator = N_plus + N_minus;
-        double covariance = std::min(var_plus, var_minus);
-        double asymmetryError = 2./(denominator*denominator)*std::sqrt(N_minus*N_minus*var_plus + N_plus*N_plus*var_minus - 2.0*N_plus*N_minus*covariance);
+        double asymmetry = (N_plus - N_minus) / (N_plus + N_minus);
+        //Error propagation for asymmetry calculation
+        double asymmetryError = 2./(denominator * denominator)*std::abs(N_minus * std::sqrt(N_plus) - N_plus * std::sqrt(N_minus));
+
         h1D_Asymmetry_ppRef->SetBinContent(i, asymmetry);
         h1D_Asymmetry_ppRef->SetBinError(i, asymmetryError);
     }
@@ -215,17 +285,13 @@ void MakeAsymmetryHist_PbPb(TFile* inputFile, double lowCent, double highCent){
         double N_minus = h1D_PtMuMi->GetBinContent(i);
         if(N_plus + N_minus == 0){
             h1D_AsymmetryPbPb->SetBinContent(i, 0.); //Avoid division by zero
+            h1D_AsymmetryPbPb->SetBinError(i, 0.);
             continue;
         }
-        double asymmetry = (N_plus - N_minus) / (N_plus + N_minus);
-        h1D_AsymmetryPbPb->SetBinContent(i, asymmetry);
-
-        //Error propagation for asymmetry calculation
-        double var_plus  = N_plus;
-        double var_minus = N_minus;
         double denominator = N_plus + N_minus;
-        double covariance = std::min(var_plus, var_minus);
-        double asymmetryError = 2./(denominator*denominator)*std::sqrt(N_minus*N_minus*var_plus + N_plus*N_plus*var_minus - 2.0*N_plus*N_minus*covariance);
+        double asymmetry = (N_plus - N_minus) / (N_plus + N_minus);
+        //Error propagation for asymmetry calculation
+        double asymmetryError = 2./(denominator * denominator)*std::abs(N_minus * std::sqrt(N_plus) - N_plus * std::sqrt(N_minus));
         h1D_AsymmetryPbPb->SetBinContent(i, asymmetry);
         h1D_AsymmetryPbPb->SetBinError(i, asymmetryError);
     }
@@ -244,6 +310,12 @@ void MakeAsymmetryHist_PbPb(TFile* inputFile, double lowCent, double highCent){
         double asymmetry_PbPb = h1D_AsymmetryPbPb->GetBinContent(i);
         double relative_asymmetry = (asymmetry_PbPb - asymmetry_ppRef);
         h1D_RelativeAsymmetry->SetBinContent(i, relative_asymmetry);
+
+        //Independent error propagation for the relative asymmetry histogram:
+        double error_ppRef = h1D_Asymmetry_ppRef->GetBinError(i);
+        double error_PbPb = h1D_AsymmetryPbPb->GetBinError(i);
+        double relative_asymmetry_error = std::sqrt(error_ppRef*error_ppRef + error_PbPb*error_PbPb);
+        h1D_RelativeAsymmetry->SetBinError(i, relative_asymmetry_error);
     }
 
     //Store the relative asymmetry histogram in the vector.

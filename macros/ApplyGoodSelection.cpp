@@ -28,7 +28,7 @@ Create a few histograms of interest for the PbPb2024 and ppRef2024 datasets afte
 
 
 //Location of datasets
-std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
+//std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
 //std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
 
 //Good Selection values
