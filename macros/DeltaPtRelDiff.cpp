@@ -223,7 +223,7 @@ void PlotDeltaPt_vsCentralityBin(){
 void MakeNormalizedDistPtRelDiff_PbPb_vs_ppRef_CentBin(TFile* inputFile, double lowCent, double highCent){
 
     //Get directories
-    TDirectory *PbPb_dir = inputFile->GetDirectory("PbPb2024_Data");
+    TDirectory *PbPb_dir = inputFile->GetDirectory("PbPb2023_2024_Data");
     TDirectory *ppRef_dir = inputFile->GetDirectory("ppRef2024_Data");
 
     std::string histName = "h2D_muonPtRelDiff_Cent";
@@ -372,7 +372,7 @@ void MakeNormalizedDistPtRelDiff_PbPb_vs_ppRef_CentBin(TFile* inputFile, double 
 void MakeNormalizedDistPtRelDiff_PbPb_vs_ppRef_0_100(TFile* inputFile){
 
     //Get directories
-    TDirectory *PbPb_dir = inputFile->GetDirectory("PbPb2024_Data");
+    TDirectory *PbPb_dir = inputFile->GetDirectory("PbPb2023_2024_Data");
     TDirectory *ppRef_dir = inputFile->GetDirectory("ppRef2024_Data");
 
     std::string histName = "h1D_muonPtRelDiff";
@@ -496,7 +496,7 @@ void MakeNormalizedDistPtRelDiff_PbPb_vs_ppRef_0_100(TFile* inputFile){
     drawLatexText(PbPb_mean_text, 0.17, 0.83, 0.03);
 
     c->Update();
-    std::string outputName = "Normalized_" + histName + "_PbPb_vs_ppRef" + plot_extension;
+    std::string outputName = "Normalized_Joined_" + histName + "_PbPb_vs_ppRef" + plot_extension;
     c->SaveAs(outputName.c_str());
 
     delete leg;

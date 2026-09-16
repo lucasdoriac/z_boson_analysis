@@ -29,7 +29,7 @@ Create a few histograms of interest for the PbPb2024 and ppRef2024 datasets afte
 
 //Location of datasets
 //std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
-//std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
+std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
 
 //Good Selection values
 const double maxZvtx = 15.0;
@@ -40,8 +40,6 @@ const double RapidityCutValue = 2.4;
 
 const double EtaCutValue = 2.4;
 const double ptCutValue = 20.;
-
-ULong64_t triggerBit = 1ULL << 7; //Trigger bit for L2SingleMu12 trigger selection.
 
 
 // ##############################################################################
@@ -67,6 +65,10 @@ struct Dataset {
     std::string treeName;
     std::string filePattern;
     std::string basePath;
+
+    bool hasCentrality;//Or maybe is AA
+    bool applyTrigger;
+    ULong64_t triggerBit;
 };
 
 Dataset datasets[] = {
@@ -76,7 +78,10 @@ Dataset datasets[] = {
         CollisionSystem::PbPb2023,
         "hionia/DimuonTree",
         "HighPtMuons_HLTL2SingleMu_PbPb2023.root",
-        BasePath + "Data/PbPb2023/"
+        BasePath + "Data/PbPb2023/",
+        true,
+        true,
+        1ULL << 6 //'HLT_HIL2SingleMu7_v'
     },
 
     {
@@ -85,7 +90,10 @@ Dataset datasets[] = {
         CollisionSystem::PbPb2024,
         "hionia/DimuonTree",
         "HighPtMuons_HLTL2SingleMu_PbPb2024Data.root",
-        BasePath + "Data/PbPb2024/"
+        BasePath + "Data/PbPb2024/",
+        true,
+        true,
+        1ULL << 7 //'HLT_HIL2SingleMu12_v'
     },
 
     {
@@ -94,7 +102,10 @@ Dataset datasets[] = {
         CollisionSystem::ppRef2024,
         "hionia/DimuonTree",
         "HighPtMuons_HLTL2SingleMu_ppRef2024.root",
-        BasePath + "Data/ppRef2024/"
+        BasePath + "Data/ppRef2024/",
+        false,
+        false,
+        0ULL
     },
 
     {
@@ -103,7 +114,10 @@ Dataset datasets[] = {
         CollisionSystem::PbPb2024,
         "hionia/myTree",
         "Oniatree_PowhegZtoMuMu_PbPb2024_*.root",
-        BasePath + "MC/PbPb2024/DYto2Mu_MLL-50_TuneCP5_5p36TeV_powheg-pythia8/PowhegEmbedded_March9/260309_143939/0000/"
+        BasePath + "MC/PbPb2024/DYto2Mu_MLL-50_TuneCP5_5p36TeV_powheg-pythia8/PowhegEmbedded_March9/260309_143939/0000/",
+        false,
+        false,
+        0ULL
     },
 
     {
@@ -112,25 +126,31 @@ Dataset datasets[] = {
         CollisionSystem::ppRef2024,
         "hionia/myTree",
         "Oniatree_PowhegZtoMuMu_ppRef2024_*.root",
-        BasePath + "MC/ppRef2024/DYToMuMu_M-50_TuneCP5_5p36TeV_powheg-pythia8/Powheg_ppRefPileup_March20/260320_125046/0000/"
+        BasePath + "MC/ppRef2024/DYToMuMu_M-50_TuneCP5_5p36TeV_powheg-pythia8/Powheg_ppRefPileup_March20/260320_125046/0000/",
+        false,
+        false,
+        0ULL
     }
 };
 
 
 //---Function declarations
 void makeGoodSelection(const Dataset& dataset, TFile* outputFile);
+void CombinePbPbYears(TFile* outputFile);
 
 //---Main
 void ApplyGoodSelection(){
 
-    //Currently opens PbPb2024 and ppRef2024 datasets and applies set of good selections.
-    //The selected data is stored on another ROOT file containing histograms of interest.
     TFile *outputFile = new TFile("mySelectedData.root", "RECREATE");
 
+    makeGoodSelection(datasets[0], outputFile); //PbPb2023
     makeGoodSelection(datasets[1], outputFile); //PbPb2024
     makeGoodSelection(datasets[2], outputFile); //ppRef2024
 
+    CombinePbPbYears(outputFile); //Combine PbPb2023 and PbPb2024 datasets into a single directory.
+
     outputFile->Close();
+    delete outputFile;
 }
 
 void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
@@ -167,7 +187,7 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
 
     chain->SetBranchAddress("zVtx", &zVtx);
     
-    if(dataset.system == CollisionSystem::PbPb2024) { //Centrality is only defined for PbPb2024 dataset.
+    if(dataset.hasCentrality) {
         chain->SetBranchAddress("Centrality", &Centrality);
     }
 
@@ -236,7 +256,7 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
     TH3D* h3D_PtMuPl_PtMuMi_Cent = nullptr;
     TH1D* h1D_centrality = nullptr;
 
-    if(dataset.system == CollisionSystem::PbPb2024){
+    if(dataset.hasCentrality){
         h3D_PtMuPl_PtMuMi_Cent = new TH3D("h3D_PtMuPl_PtMuMi_Cent",
         "p_{T}^{#mu^{+}} vs p_{T}^{#mu^{-}} vs Centrality; p_{T}^{#mu^{+}} [GeV/c]; p_{T}^{#mu^{-}} [GeV/c]; Centrality [%]",
         100, 0., 100., 100, 0., 100., 200, 0., 100.);
@@ -316,7 +336,7 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
     TH2D* h2D_muonPtRelDiff_Cent = nullptr;
     TH2D* h2D_zPt_Cent = nullptr;
 
-    if(dataset.system == CollisionSystem::PbPb2024){//Centrality is only defined for PbPb2024 dataset.
+    if(dataset.hasCentrality){
         //muonPtRelDiff vs Centrality
         h2D_muonPtRelDiff_Cent = new TH2D("h2D_muonPtRelDiff_Cent",
         "Relative p_{T} difference vs Centrality;Centrality [%];(p_{T}^{#mu^{+}}-p_{T}^{#mu^{-}})/(p_{T}^{#mu^{+}}+p_{T}^{#mu^{-}})",
@@ -360,7 +380,7 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
 
         chain->GetEntry(i); //Get event i.
 
-        //Good event selection. No centrality selection/accepting all centralities from 0 to 100% for PbPb2024 dataset.
+        //Good event selection. No centrality selection at this point.
         bool goodVertex = (std::abs(zVtx) < maxZvtx);
 
         if (!goodVertex) continue;
@@ -374,8 +394,9 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
             bool goodVtxProb = (Reco_Dimuon_vtxProb[j] > 0.001); //Vertex probability cut of .1% for dimuon candidates.
             bool isTriggerMatched = true;
 
-                if (dataset.system == CollisionSystem::PbPb2024){
-                    isTriggerMatched = (Reco_Dimuon_trig[j] & triggerBit);//**At least** one of the daughter muons must be matched to the trigger.
+                if (dataset.applyTrigger) {
+                    //**At least** one of the daughter muons must be matched to the trigger.
+                    isTriggerMatched = (Reco_Dimuon_trig[j] & dataset.triggerBit);
                 }
 
             if (!goodMass) continue;
@@ -442,7 +463,7 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
             //Absolute pT difference between the two daughter muons.
             h1D_muonPtDiff->Fill(Reco_Dimuon_muonPtDiff->at(j));
 
-            if (dataset.system == CollisionSystem::PbPb2024) {
+            if (dataset.hasCentrality) {
                 h3D_PtMuPl_PtMuMi_Cent->Fill(ptplus, ptminus, Centrality/2.);
                 h1D_centrality->Fill(Centrality/2.);
 
@@ -480,7 +501,7 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
     std::cout << "> Number of Z bosons selected = " << h1D_invMass->GetEntries() << std::endl;
 
     //Write everything on the current directory.
-    if(dataset.system == CollisionSystem::PbPb2024){//Only write for PbPb2024 dataset.
+    if(dataset.hasCentrality){//Only write for PbPb datasets.
         h3D_PtMuPl_PtMuMi_Cent->Write(); 
         h1D_centrality->Write();
 
@@ -511,5 +532,73 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
     h2D_PtMuPl_PtMuMi->Write();
     
     //Leave directory.
+    outputFile->cd();
+}
+
+void CombinePbPbYears(TFile* outputFile){
+
+    TDirectory* dir2023 = outputFile->GetDirectory("PbPb2023_Data");
+    TDirectory* dir2024 = outputFile->GetDirectory("PbPb2024_Data");
+    if(!dir2023 || !dir2024){
+        std::cout << "Error: PbPb directories not found." << std::endl;
+        return;
+    }
+
+    TDirectory* combinedDir = outputFile->mkdir("PbPb2023_2024_Data");
+
+    std::vector<std::string> histNames = {
+
+        "h3D_PtMuPl_PtMuMi_Cent",
+        "h1D_centrality",
+
+        "h1D_invMass",
+        "h1D_zPt",
+        "h1D_zRapidity",
+
+        "h1D_ptMuPlus",
+        "h1D_ptMuMinus",
+
+        "h1D_etaMuPlus",
+        "h1D_etaMuMinus",
+
+        "h1D_phiMuPlus",
+        "h1D_phiMuMinus",
+
+        "h1D_zVtx",
+
+        "h1D_deltaPhiMuMu",
+        "h1D_deltaRMuMu",
+        "h1D_acoplanarity",
+
+        "h1D_muonPtRelDiff",
+        "h1D_muonPtDiff",
+
+        "h2D_muonPtRelDiff_Cent",
+        "h2D_zPt_Cent",
+
+        "h2D_muonPtRelDiff_zPt",
+        "h2D_muonPtRelDiff_zRapidity",
+        "h2D_zPt_zRapidity",
+        "h2D_PtMuPl_PtMuMi"
+    };
+
+
+    for(const auto& histName : histNames){
+
+        TH1* h2023 = dynamic_cast<TH1*>(dir2023->Get(histName.c_str()));
+        TH1* h2024 = dynamic_cast<TH1*>(dir2024->Get(histName.c_str()));
+        if(!h2023 || !h2024){ 
+            std::cerr<< "Warning: could not get TH1 histogram from single year. " << histName << std::endl;
+            continue;
+        }
+
+        combinedDir->cd();
+        TH1* hCombined = dynamic_cast<TH1*>(h2023->Clone(histName.c_str()));
+
+        hCombined->SetDirectory(combinedDir);
+        hCombined->Add(h2024);
+        hCombined->Write();
+    }
+
     outputFile->cd();
 }

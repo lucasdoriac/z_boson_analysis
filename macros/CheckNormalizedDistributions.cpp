@@ -52,7 +52,7 @@ void CheckNormalizedDistributions(){
 void CheckSelected(TFile* inputFile){
 
     //Get directories
-    TDirectory *PbPb_dir = inputFile->GetDirectory("PbPb2024_Data");
+    TDirectory *PbPb_dir = inputFile->GetDirectory("PbPb2023_2024_Data");
     TDirectory *ppRef_dir = inputFile->GetDirectory("ppRef2024_Data");
 
     for(const auto& histName : selectedDistributions) {
@@ -110,18 +110,18 @@ void CheckSelected(TFile* inputFile){
         h_PbPb->Draw("P");
         h_ppRef->Draw("P SAME");
         
-        TLegend *leg = new TLegend(0.75, 0.8, 0.95, 0.9);
+        TLegend *leg = new TLegend(0.7, 0.78, 0.95, 0.88);
         basicLegendFormatting(leg);
-        leg->AddEntry(h_PbPb, "PbPb2024", "p");
+        leg->AddEntry(h_PbPb, "PbPb2023+2024", "p");
         leg->AddEntry(h_ppRef, "ppRef2024", "p");
         leg->Draw();
 
         drawLatexText("#bf{CMS}", 0.12, 0.93, 0.042);
         drawLatexText("#it{Work in Progress}", 0.2, 0.93, 0.033);
-        drawLatexText("PbPb 2024, ppRef 2024 (5.36 TeV)", 0.6, 0.93, 0.033);
+        drawLatexText("PbPb 2023+2024, ppRef 2024 (5.36 TeV)", 0.5, 0.93, 0.033);
 
         c->Update();
-        std::string outputName = "Normalized_Distributions_" + histName + plot_extension;
+        std::string outputName = "Normalized_Distributions_Joined_" + histName + plot_extension;
         c->SaveAs(outputName.c_str());
 
         delete leg;
