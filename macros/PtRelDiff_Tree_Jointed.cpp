@@ -1,6 +1,13 @@
 /*
 Makes PtRelDiff (relative to ppRef) vs centrality bin without using histograms.
 Rather, directly from the Tree.
+
+Now I want to analyze both PbPb2023 and PbPb2024 datasets.
+Lets say PbPb 2023+2024.
+In particular I'm curious to see how the error bars on the final variable will respond.
+
+The way to do it in my opinion is to just read and select Z candidates from the tree separately,
+but still store PtRelDiff values in the same vector, and then calculate the statistics from that vector.
 */
 
 //---Libraries
@@ -30,7 +37,7 @@ Rather, directly from the Tree.
 
 
 //---Macro settings
-std::string plot_extension = ".pdf"; // ".png" for regular development and ".pdf" for final quality plots
+std::string plot_extension = ".png"; // ".png" for regular development and ".pdf" for final quality plots
 std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
 //std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
 
@@ -68,6 +75,10 @@ struct Dataset {
     std::string treeName;
     std::string filePattern;
     std::string basePath;
+
+    bool hasCentrality;//Or maybe is AA
+    bool applyTrigger;
+    ULong64_t triggerBit;
 };
 
 Dataset datasets[] = {
@@ -77,7 +88,10 @@ Dataset datasets[] = {
         CollisionSystem::PbPb2023,
         "hionia/DimuonTree",
         "HighPtMuons_HLTL2SingleMu_PbPb2023.root",
-        BasePath + "Data/PbPb2023/"
+        BasePath + "Data/PbPb2023/",
+        true,
+        true,
+        1ULL << 6 //'HLT_HIL2SingleMu7_v'
     },
 
     {
@@ -86,7 +100,10 @@ Dataset datasets[] = {
         CollisionSystem::PbPb2024,
         "hionia/DimuonTree",
         "HighPtMuons_HLTL2SingleMu_PbPb2024Data.root",
-        BasePath + "Data/PbPb2024/"
+        BasePath + "Data/PbPb2024/",
+        true,
+        true,
+        1ULL << 7 //'HLT_HIL2SingleMu12_v'
     },
 
     {
@@ -95,7 +112,10 @@ Dataset datasets[] = {
         CollisionSystem::ppRef2024,
         "hionia/DimuonTree",
         "HighPtMuons_HLTL2SingleMu_ppRef2024.root",
-        BasePath + "Data/ppRef2024/"
+        BasePath + "Data/ppRef2024/",
+        false,
+        false,
+        0ULL
     },
 
     {
@@ -104,7 +124,10 @@ Dataset datasets[] = {
         CollisionSystem::PbPb2024,
         "hionia/myTree",
         "Oniatree_PowhegZtoMuMu_PbPb2024_*.root",
-        BasePath + "MC/PbPb2024/DYto2Mu_MLL-50_TuneCP5_5p36TeV_powheg-pythia8/PowhegEmbedded_March9/260309_143939/0000/"
+        BasePath + "MC/PbPb2024/DYto2Mu_MLL-50_TuneCP5_5p36TeV_powheg-pythia8/PowhegEmbedded_March9/260309_143939/0000/",
+        false,
+        false,
+        0ULL
     },
 
     {
@@ -113,7 +136,10 @@ Dataset datasets[] = {
         CollisionSystem::ppRef2024,
         "hionia/myTree",
         "Oniatree_PowhegZtoMuMu_ppRef2024_*.root",
-        BasePath + "MC/ppRef2024/DYToMuMu_M-50_TuneCP5_5p36TeV_powheg-pythia8/Powheg_ppRefPileup_March20/260320_125046/0000/"
+        BasePath + "MC/ppRef2024/DYToMuMu_M-50_TuneCP5_5p36TeV_powheg-pythia8/Powheg_ppRefPileup_March20/260320_125046/0000/",
+        false,
+        false,
+        0ULL
     }
 };
 
@@ -130,7 +156,8 @@ std::vector<std::pair<double, double>> CentralitySet = {
     {0., 10.},
     {10., 30.},
     {30., 50.},
-    {50., 100.}
+    {50., 100.},
+    {0., 100.}
 };*/
 
 //A struct is better to organize results in this case.
@@ -151,14 +178,15 @@ std::vector<PtRelDiffResult> PbPbResults; //centralityBinStr, n, mean, meanError
 std::vector<PtRelDiffResult> FinalResults; //centralityBinStr, n, mean, meanError, variance, skewness, skewnessError.
 
 //---Function declarations
-void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double highCent);
-void PlotPtRelativeDiff();
+void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double highCent, std::vector<double>& ptRelDiffValues);
+void FillResultStructFromVector(bool hasCentrality, double lowCent, double highCent, const std::vector<double>& ptRelDiffValues);
 std::tuple<Long64_t, double, double, double, double, double> GetStatistics(const std::vector<double>& values);
-void PlotSkewnessRelativeDiff();
+void PlotPtRelativeDiff();
+//void PlotSkewnessRelativeDiff();
 
 
 //---Main function
-void PtRelDiff_FROMTREE(){
+void PtRelDiff_Tree_Jointed(){
 
     gROOT->SetBatch(kTRUE);
     ppRefResults.clear();
@@ -166,12 +194,22 @@ void PtRelDiff_FROMTREE(){
     FinalResults.clear();
 
     //Calculate PtRelDiff for ppRef2024 dataset.
-    CalculatePtRelativeDiff(datasets[2], 0., 100.); //ppRef2024 dataset.
+    std::vector<double> ptRelDiffValues_ppRef;
+    CalculatePtRelativeDiff(datasets[2], 0., 100., ptRelDiffValues_ppRef); //ppRef2024 dataset.
+    FillResultStructFromVector(false, 0., 100., ptRelDiffValues_ppRef); //ppRef2024 dataset.
 
     //Now for PbPb2024 dataset. Loop over centrality bins. 
     for(const auto& centralityBin : CentralitySet){
-        std::cout << "\nCalculating PtRelDiff_PbPb for centrality bin: " << centralityBin.first << "-" << centralityBin.second << "%\n";
-        CalculatePtRelativeDiff(datasets[1], centralityBin.first, centralityBin.second); //PbPb2024 dataset
+
+        std::cout << "\nCalculating PtRelDiff for centrality bin: " << centralityBin.first << "-" << centralityBin.second << "%\n";
+
+        //Vector to calculate statistics from.
+        std::vector<double> ptRelDiffValues;
+        CalculatePtRelativeDiff(datasets[0], centralityBin.first, centralityBin.second, ptRelDiffValues); //PbPb2023 dataset
+        CalculatePtRelativeDiff(datasets[1], centralityBin.first, centralityBin.second, ptRelDiffValues); //PbPb2024 dataset
+
+        //Fill a struct that contains statistics for each centrality.
+        FillResultStructFromVector(true, centralityBin.first, centralityBin.second, ptRelDiffValues);
     }
 
     //Plot the final results.
@@ -250,8 +288,8 @@ void PlotPtRelativeDiff(){
     //Make sure zero is visible:
     yMin = std::min(yMin, 0.0);
     yMax = std::max(yMax, 0.0);
-    frame->SetMinimum(yMin);
-    frame->SetMaximum(yMax);
+    frame->SetMinimum(-0.0033);
+    frame->SetMaximum(0.0051);
     //
 
     frame->GetXaxis()->SetTickLength(0.0);
@@ -286,9 +324,9 @@ void PlotPtRelativeDiff(){
     line->SetLineWidth(2);
     line->Draw();
 
-    drawLatexText("#bf{CMS}", 0.14, 0.93, 0.042);
-    drawLatexText("#it{Work in Progress}", 0.22, 0.93, 0.033);
-    drawLatexText("PbPb 2024, ppRef 2024 (5.36 TeV)", 0.6, 0.93, 0.033);
+    drawLatexText("#bf{CMS}", 0.14, 0.93, 0.04);
+    drawLatexText("#it{Work in Progress}", 0.21, 0.93, 0.03);
+    drawLatexText("PbPb 2023+2024, ppRef 2024 (5.36 TeV)", 0.55, 0.93, 0.03);
     
     //Plot specifications
     drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.2, 0.8, 0.03);
@@ -302,7 +340,7 @@ void PlotPtRelativeDiff(){
     delete c;
 }
 
-void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double highCent){
+void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double highCent, std::vector<double>& ptRelDiffValues) {
 
     // Load root file.
     std::string fullPath = dataset.basePath + dataset.filePattern;
@@ -311,9 +349,7 @@ void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double high
     chain->Add(fullPath.c_str());
 
     std::cout << "> Number of files = " << chain->GetListOfFiles()->GetEntries() << "\n" << std::endl;
-
     std::cout << "> Opening files " << fullPath << "\n" << std::endl;
-
     std::cout << "> Running function " << __func__ << " on " << dataset.name << "\n" << std::endl;
     
     //Total number of events on Tree.
@@ -330,7 +366,7 @@ void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double high
 
     chain->SetBranchAddress("zVtx", &zVtx);
 
-    if(dataset.system == CollisionSystem::PbPb2024) {//Centrality is only defined for PbPb2024 dataset.
+    if(dataset.hasCentrality) {//PbPb2023, PbPb2024.
         chain->SetBranchAddress("Centrality", &Centrality);
     }
 
@@ -414,16 +450,10 @@ void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double high
     double ptplus, ptminus;
     double etaplus, etaminus;
 
-    //Trigger selection: 'L2SingleMu12'.
-    ULong64_t triggerBit = 1ULL << 7;
-
-    //Centrality interval for PbPb2024 dataset. For ppRef2024 dataset, this is ignored.
-    float minCentrality = 2.0*lowCent;
-    float maxCentrality = 2.0*highCent;
-
-    //Vector to calculate statistics from.
-    std::vector<double> ptRelDiffValues;
-
+    //Centrality interval passed as argument to the function.
+    float minCentrality = 2.*lowCent;
+    float maxCentrality = 2.*highCent;
+    //
 
     for(Long64_t i = 0; i < nEvents; ++i){//Loop through all EVENTS in the CHAIN.
 
@@ -433,7 +463,7 @@ void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double high
         bool goodVertex = (std::abs(zVtx) < maxZvtx);
         bool goodCent = true;
 
-        if (dataset.system == CollisionSystem::PbPb2024) {
+        if (dataset.hasCentrality) {
             goodCent = (Centrality >= minCentrality && Centrality < maxCentrality);
         }
 
@@ -449,8 +479,9 @@ void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double high
             bool goodVtxProb = (Reco_Dimuon_vtxProb[j] > 0.001); //Vertex probability cut of .1% for dimuon candidates.
             bool isTriggerMatched = true;
 
-                if (dataset.system == CollisionSystem::PbPb2024){
-                    isTriggerMatched = (Reco_Dimuon_trig[j] & triggerBit);//**At least** one of the daughter muons must be matched to the trigger.
+                if (dataset.applyTrigger) {
+                    //**At least** one of the daughter muons must be matched to the trigger.
+                    isTriggerMatched = (Reco_Dimuon_trig[j] & dataset.triggerBit);//Corresponding triggerBit to that dataset.
                 }
 
             if (!goodMass) continue;
@@ -481,6 +512,7 @@ void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double high
             if (!goodMuPl || !goodMuMi) continue;
             //End of good selection for dimuon candidate j of event i.
             
+            //Store the PtRelDiff value.
             ptRelDiffValues.push_back(Reco_Dimuon_muonPtRelDiff->at(j));
         
         }//End of dimuon candidate loop.
@@ -500,11 +532,18 @@ void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double high
 
     }//Exiting event-by-event loop.
 
+
+    delete chain;
+}
+
+
+void FillResultStructFromVector(bool hasCentrality, double lowCent, double highCent, const std::vector<double>& ptRelDiffValues){
+    
     //Get statistics from the vector of PtRelDiff values.
     auto [n, mean, meanError, variance, skewness, skewnessError] = GetStatistics(ptRelDiffValues);
 
     PtRelDiffResult result;
-    if(dataset.system == CollisionSystem::PbPb2024){
+    if(hasCentrality) {
         //Centrality to string
         std::string centString = std::to_string(static_cast<int>(lowCent)) + "-" + std::to_string(static_cast<int>(highCent));
 
@@ -533,8 +572,6 @@ void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double high
 
         ppRefResults.push_back(result);
     }
-
-    delete chain;
 }
 
 std::tuple<Long64_t, double, double, double, double, double> GetStatistics(const std::vector<double>& values) {
@@ -566,7 +603,7 @@ std::tuple<Long64_t, double, double, double, double, double> GetStatistics(const
 
     //The calculation of skewness is a bit complicated.
     //It is defined as
-    //g_1 = M3^3 / M2^(3/2).
+    // g1 = sqrt(n) * M3 / M2^(3/2)
     //For now im calculating the skewness error in the same way as ROOT.
     //However this is a simplification of the calculation and if we decide to keep calculating the skewness
     //in the future we can think of a better way to estimate its error.
