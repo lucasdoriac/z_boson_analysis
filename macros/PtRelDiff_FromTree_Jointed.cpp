@@ -1,13 +1,8 @@
 /*
 Makes PtRelDiff (relative to ppRef) vs centrality bin without using histograms.
-Rather, directly from the Tree.
-
-Now I want to analyze both PbPb2023 and PbPb2024 datasets.
-Lets say PbPb 2023+2024.
-In particular I'm curious to see how the error bars on the final variable will respond.
-
-The way to do it in my opinion is to just read and select Z candidates from the tree separately,
-but still store PtRelDiff values in the same vector, and then calculate the statistics from that vector.
+Calculates directly from the Tree.
+Calculates mean and skewness of the PtRelDiff distribution for each centrality bin.
+Analyzes both PbPb2023 and PbPb2024 datasets.
 */
 
 //---Libraries
@@ -37,9 +32,9 @@ but still store PtRelDiff values in the same vector, and then calculate the stat
 
 
 //---Macro settings
-std::string plot_extension = ".png"; // ".png" for regular development and ".pdf" for final quality plots
-//std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
-std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
+std::string plot_extension = ".pdf"; // ".png" for regular development and ".pdf" for final quality plots
+std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
+//std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
 std::string dataSamplesUsed = "PbPb 2023+2024, ppRef 2024 (5.36 TeV)";
 
 //Good selection threshold values
@@ -186,7 +181,7 @@ void PlotSkewnessRelativeDiff();
 
 
 //---Main function
-void PtRelDiff_Tree_Jointed(){
+void PtRelDiff_FromTree_Jointed(){
 
     gROOT->SetBatch(kTRUE);
     ppRefResults.clear();
@@ -276,7 +271,7 @@ void PlotSkewnessRelativeDiff(){
 
     frame->GetXaxis()->SetTickLength(0.0);
     frame->GetXaxis()->SetTitle("Centrality bin");
-    frame->GetYaxis()->SetTitle("#Delta #gamma_i");
+    frame->GetYaxis()->SetTitle("#Delta #gamma_{i}");
     frame->GetYaxis()->CenterTitle(true);
     frame->GetYaxis()->SetTitleOffset(1.4);
 
@@ -414,13 +409,7 @@ void PlotPtRelativeDiff(){
     graph->SetLineColorAlpha(kRed-7, 0.8);
     graph->SetLineWidth(2);
 
-    //Axes configurations
-    //graph->GetXaxis()->SetLimits(0, 100);
-    //graph->GetXaxis()->SetTitle("Centrality (%)");
-    //graph->GetYaxis()->SetTitle("#LT#Delta p_{T}^{rel}#GT_{PbPb} - #LT#Delta p_{T}^{rel}#GT_{ppRef}");
-    //graph->GetYaxis()->CenterTitle(true);
-    //graph->GetYaxis()->SetTitleOffset(1.4);
-
+    //Draw graph on top of frame.
     graph->Draw("P SAME");
 
     //Grey line at y=0
