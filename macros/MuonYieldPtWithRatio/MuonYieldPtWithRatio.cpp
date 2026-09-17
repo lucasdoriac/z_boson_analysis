@@ -1,7 +1,5 @@
 /*
 Mini macro to plot pT(\mu+) and pT(\mu-) as asked by Cesar on the Z boson analysis gDoc.
-
-
 */
 
 //---Libraries

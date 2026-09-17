@@ -37,6 +37,7 @@ std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
 //std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
 std::string dataSamplesUsed = "PbPb 2023+2024, ppRef 2024 (5.36 TeV)";
 
+
 //Good selection threshold values
 const double MAX_ZVTX = 15.0;
 
