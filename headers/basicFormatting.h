@@ -55,7 +55,7 @@ void basicPaddedCanvasFormatting(TCanvas* c, TPad* pad1, TPad* pad2){
     pad2->SetFrameLineWidth(1);
 }
 
-void basicHistFormatting(TH1D* hist){
+void basicHistFormatting(TH1* hist){
     hist->SetStats(0);
     hist->SetTitle("");
     hist->GetXaxis()->CenterTitle(false);
