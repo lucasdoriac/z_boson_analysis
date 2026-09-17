@@ -38,9 +38,9 @@ but still store PtRelDiff values in the same vector, and then calculate the stat
 
 //---Macro settings
 std::string plot_extension = ".png"; // ".png" for regular development and ".pdf" for final quality plots
-std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
-//std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
-
+//std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
+std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
+std::string dataSamplesUsed = "PbPb 2023+2024, ppRef 2024 (5.36 TeV)";
 
 //Good selection threshold values
 const double MAX_ZVTX = 15.0;
@@ -182,7 +182,7 @@ void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double high
 void FillResultStructFromVector(bool hasCentrality, double lowCent, double highCent, const std::vector<double>& ptRelDiffValues);
 std::tuple<Long64_t, double, double, double, double, double> GetStatistics(const std::vector<double>& values);
 void PlotPtRelativeDiff();
-//void PlotSkewnessRelativeDiff();
+void PlotSkewnessRelativeDiff();
 
 
 //---Main function
@@ -213,10 +213,116 @@ void PtRelDiff_Tree_Jointed(){
     }
 
     //Plot the final results.
+    //One small caution: The final results are filled within the PlotPtRelativeDiff() function.
     PlotPtRelativeDiff();
-    //PlotSkewnessRelativeDiff();
+    PlotSkewnessRelativeDiff();
 }
 
+void PlotSkewnessRelativeDiff(){
+    //Values for TGraphErrors are just skewness diff and skewness error diff.
+    int nPoints = FinalResults.size();
+    if(nPoints != CentralitySet.size()){
+        std::cerr << "Error: Number of points in DeltaPtAndError does not match number of centrality bins." << std::endl;
+        return;
+    }
+
+    std::vector<double> xValues(nPoints);
+    std::vector<double> yValues(nPoints);
+    std::vector<double> xErrors(nPoints);
+    std::vector<double> yErrors(nPoints);
+
+    for(int i = 0; i < nPoints; ++i){
+        xValues[i] = i+1;
+        xErrors[i] = 0.;
+        yValues[i] = FinalResults[i].skewness;
+        yErrors[i] = FinalResults[i].skewnessError;
+    }
+
+
+    //TGraphErrors
+    TGraphErrors* graph = new TGraphErrors(nPoints, xValues.data(), yValues.data(), xErrors.data(), yErrors.data());
+    basicGraphFormatting(graph);
+
+    //Plot
+    TCanvas* c = new TCanvas("c", "Skewness diff vs Centrality", 800, 600);
+    basicCanvasFormatting(c);
+    c->SetLeftMargin(0.13);
+
+    //Frame TH1 helper to set the x-axis labels for centrality bins.
+    TH1D* frame = new TH1D("frame_skewness","",nPoints,0.5,nPoints + 0.5);
+    basicHistFormatting(frame);
+    for(int i = 0; i < nPoints; ++i){
+        std::string label = Form("%.0f-%.0f%%", CentralitySet[i].first, CentralitySet[i].second);
+        frame->GetXaxis()->SetBinLabel(i + 1,label.c_str());
+    }
+
+    //Give range information to new frame histogram:
+    double yMin = yValues[0] - yErrors[0];
+    double yMax = yValues[0] + yErrors[0];
+    for(int i = 1; i < nPoints; ++i){
+        yMin = std::min(yMin,yValues[i] - yErrors[i]);
+        yMax = std::max(yMax,yValues[i] + yErrors[i]);
+    }
+    double yRange = yMax - yMin;
+    yMin -= 0.20 * yRange;
+    yMax += 0.20 * yRange;
+    
+    //Make sure zero is visible:
+    yMin = std::min(yMin, 0.0);
+    yMax = std::max(yMax, 0.0);
+    frame->SetMinimum(yMin);
+    frame->SetMaximum(yMax);
+    //
+
+    frame->GetXaxis()->SetTickLength(0.0);
+    frame->GetXaxis()->SetTitle("Centrality bin");
+    frame->GetYaxis()->SetTitle("#Delta #gamma_i");
+    frame->GetYaxis()->CenterTitle(true);
+    frame->GetYaxis()->SetTitleOffset(1.4);
+
+    //Draw only the axis frame.
+    frame->Draw("AXIS");
+
+    //Format graph.
+    graph->SetMarkerStyle(20);
+    graph->SetMarkerSize(0.9);
+    graph->SetMarkerColorAlpha(kGreen+1, 1.);
+    graph->SetLineColorAlpha(kGreen-7, 0.8);
+    graph->SetLineWidth(2);
+
+    //Axes configurations
+    //graph->GetXaxis()->SetLimits(0, 100);
+    //graph->GetXaxis()->SetTitle("Centrality (%)");
+    //graph->GetYaxis()->SetTitle("#LT#Delta p_{T}^{rel}#GT_{PbPb} - #LT#Delta p_{T}^{rel}#GT_{ppRef}");
+    //graph->GetYaxis()->CenterTitle(true);
+    //graph->GetYaxis()->SetTitleOffset(1.4);
+
+    graph->Draw("P SAME");
+
+    //Grey line at y=0
+    TLine* line = new TLine(0.5, 0.0, 0.5+nPoints, 0.0);
+    line->SetLineColor(kGray);
+    line->SetLineStyle(7);
+    line->SetLineWidth(2);
+    line->Draw();
+
+    drawLatexText("#bf{CMS}", 0.14, 0.93, 0.04);
+    drawLatexText("#it{Work in Progress}", 0.21, 0.93, 0.03);
+    drawLatexText(dataSamplesUsed.c_str(), 0.55, 0.93, 0.03);
+    
+    //Plot specifications
+    drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.2, 0.8, 0.03);
+    drawLatexText("60 < M_{#mu#mu} < 120 GeV", 0.2, 0.75, 0.03);
+
+    c->Update();
+    std::string outputName = "SkewnessDiff_vs_Centrality_FROMTREE" + plot_extension;
+    c->SaveAs(outputName.c_str());
+
+    delete frame;
+    delete line;
+    delete graph;
+    delete c;
+}
 
 void PlotPtRelativeDiff(){
 
@@ -267,7 +373,7 @@ void PlotPtRelativeDiff(){
     c->SetLeftMargin(0.13);
 
     //Frame TH1 helper to set the x-axis labels for centrality bins.
-    TH1D* frame = new TH1D("frame","",nPoints,0.5,nPoints + 0.5);
+    TH1D* frame = new TH1D("frame_mean","",nPoints,0.5,nPoints + 0.5);
     basicHistFormatting(frame);
     for(int i = 0; i < nPoints; ++i){
         std::string label = Form("%.0f-%.0f%%", CentralitySet[i].first, CentralitySet[i].second);
@@ -288,8 +394,8 @@ void PlotPtRelativeDiff(){
     //Make sure zero is visible:
     yMin = std::min(yMin, 0.0);
     yMax = std::max(yMax, 0.0);
-    frame->SetMinimum(-0.0033);
-    frame->SetMaximum(0.0051);
+    frame->SetMinimum(yMin);
+    frame->SetMaximum(yMax);
     //
 
     frame->GetXaxis()->SetTickLength(0.0);
@@ -326,7 +432,7 @@ void PlotPtRelativeDiff(){
 
     drawLatexText("#bf{CMS}", 0.14, 0.93, 0.04);
     drawLatexText("#it{Work in Progress}", 0.21, 0.93, 0.03);
-    drawLatexText("PbPb 2023+2024, ppRef 2024 (5.36 TeV)", 0.55, 0.93, 0.03);
+    drawLatexText(dataSamplesUsed.c_str(), 0.55, 0.93, 0.03);
     
     //Plot specifications
     drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.2, 0.8, 0.03);
@@ -336,6 +442,8 @@ void PlotPtRelativeDiff(){
     std::string outputName = "DeltaPtRelDiff_vs_Centrality_FROMTREE" + plot_extension;
     c->SaveAs(outputName.c_str());
 
+    delete frame;
+    delete line;
     delete graph;
     delete c;
 }
