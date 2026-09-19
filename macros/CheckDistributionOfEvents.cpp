@@ -8,8 +8,12 @@ Check distribution of events in each centrality set.
 #include <TTree.h>
 #include <TH1.h>
 #include <TString.h>
+#include <TGraph.h>
+#include <TROOT.h>
 #include <TCanvas.h>
 #include <TLegend.h>
+#include <array>
+#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <cstdio>
@@ -18,6 +22,7 @@ Check distribution of events in each centrality set.
 #include <vector>
 #include "../headers/basicFormatting.h"
 
+
 //---Macro settings
 std::string plot_extension = ".pdf"; // ".png" for regular development and ".pdf" for final quality plots
 std::string whichDataset = "PbPb2023_2024_Data"; // "PbPb2023_2024_Data", "PbPb2023_Data", "PbPb2024_Data". 
@@ -25,8 +30,10 @@ std::string JointPbPb = "PbPb2023+2024"; //"PbPb2023+2024", "PbPb2023", "PbPb202
 std::string dataSamplesUsed = "PbPb 2023+2024, ppRef 2024 (5.36 TeV)"; //"PbPb 2023+2024, ppRef 2024 (5.36 TeV)", "PbPb 2023, ppRef 2024 (5.36 TeV)", "PbPb 2024, ppRef 2024 (5.36 TeV)".
 double delta = 1e-6;
 
+
 // ##############################################################################
 // ##############################################################################
+
 
 std::vector<std::pair<double, double>> cBinsSet1 = {
     {0., 10.},
@@ -43,9 +50,11 @@ std::vector<std::pair<double, double>> cBinsSet2 = {
 };
 
 
-std::vector<std::vector<double, double, double>> GetEventsOnCBin(TFile* inputFile, std::vector<std::pair<double, double>> cBinsSet);
-void MakeTGraph(std::vector<std::vector<double, double, double>> fromSet1,
-                std::vector<std::vector<double, double, double>> fromSet2);
+std::vector<std::array<double,3>> GetEventsOnCBin(TFile* inputFile, std::vector<std::pair<double, double>> cBinsSet);
+void MakeTGraph(std::vector<std::array<double,3>> fromSet1,
+                std::vector<std::array<double,3>> fromSet2);
+TGraph* FormatGraph(TGraph* graph, Color_t color);
+
 
 //---Main()
 void CheckDistributionOfEvents(){
@@ -61,33 +70,98 @@ void CheckDistributionOfEvents(){
     inputFile->Close();
 }
 
-void MakeTGraph(std::vector<std::vector<double, double, double>> fromSet1,
-                std::vector<std::vector<double, double, double>> fromSet2){
 
-    TGraph *graph1 = new TGraph(fromSet1.size());
-    TGraph *graph2 = new TGraph(fromSet2.size());
+void MakeTGraph(std::vector<std::array<double,3>> fromSet1,
+                std::vector<std::array<double,3>> fromSet2){
 
-    for (size_t i = 0; i < fromSet1.size(); i++){
-        double cMin = fromSet1[i][0];
-        double cMax = fromSet1[i][1];
-        double nEvents = fromSet1[i][2];
+    TGraph *graph_set1;
+    TGraph *graph_set2;
 
-        graph1->SetPoint(i, (cMin + cMax) / 2., nEvents);
+    int nPoints = fromSet1.size();
+    if(nPoints != cBinsSet1.size()){
+            std::cerr << "Error: Number of points in PeakDifferenceAndError does not match number of centrality bins." << std::endl;
+            return;
     }
 
-    for (size_t i = 0; i < fromSet2.size(); i++){
-        double cMin = fromSet2[i][0];
-        double cMax = fromSet2[i][1];
-        double nEvents = fromSet2[i][2];
+    std::vector<double> xValues(nPoints);
+    std::vector<double> yValues(nPoints);
 
-        graph2->SetPoint(i, (cMin + cMax) / 2., nEvents);
+    for(int i = 0; i < nPoints; ++i){
+        xValues[i] = i + 1;
+        yValues[i] = fromSet1[i][2]; //Number of events in this centrality range
+    }
+    // Create the TGraph for Set1.
+    TGraph *graph = new TGraph(nPoints, xValues.data(), yValues.data());
+    graph_set1 = FormatGraph(graph, kBlue);
+
+    for(int i = 0; i < nPoints; ++i){
+        xValues[i] = i + 1;
+        yValues[i] = fromSet2[i][2]; //Number of events in this centrality range
+    }
+    // Create the TGraph for Set2.
+    graph = new TGraph(nPoints, xValues.data(), yValues.data());
+    graph_set2 = FormatGraph(graph, kRed);
+
+    //Create canvas.
+    TCanvas* c = new TCanvas("c", "c", 800, 600);
+    basicCanvasFormatting(c);
+
+    //Frame TH1 helper to set the x-axis labels for centrality bins.
+    TH1D* frame = new TH1D("frame","",nPoints,0.5,nPoints + 0.5);
+    basicHistFormatting(frame);
+    for(int i = 0; i < nPoints; ++i){
+        frame->GetXaxis()->SetBinLabel(i+1, Form("%d", i+1));
     }
 
+    double yMax = 0.;
+    for(const auto& value : fromSet1) yMax = std::max(yMax, value[2]);
+    for(const auto& value : fromSet2) yMax = std::max(yMax, value[2]);
+    frame->SetMinimum(0.);
+    frame->SetMaximum(1.20 * yMax);
+    //
 
+    frame->GetXaxis()->SetTickLength(0.0);
+    frame->GetXaxis()->SetTitle("cBin index");
+    frame->GetYaxis()->SetTitle("Candidates");
+    frame->GetYaxis()->SetTitleOffset(1.4);
+
+    //Draw only the axis frame.
+    frame->Draw("AXIS");
+
+
+    //Draw graphs
+    graph_set1->Draw("LP SAME");
+    graph_set2->Draw("LP SAME");
+
+    TLegend* leg = new TLegend(0.62, 0.72, 0.88, 0.84);
+    basicLegendFormatting(leg);
+
+    leg->AddEntry(graph_set1, "Centrality set 1", "lp");
+    leg->AddEntry(graph_set2, "Centrality set 2", "lp");
+
+    leg->Draw();
+
+    drawLatexText("#bf{CMS}", 0.12, 0.93, 0.042);
+    drawLatexText("#it{Work in Progress}", 0.2, 0.93, 0.033);
+    drawLatexText("PbPb 2024, ppRef 2024 (5.36 TeV)", 0.6, 0.93, 0.033);
     
+    //Plot specifications
+    drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.22, 0.3, 0.03);
+    drawLatexText("60 < M_{#mu#mu} < 120 GeV", 0.22, 0.25, 0.03);
+
+    c->Update();
+    std::string outputName = "DistributionOfEvents_vs_Centrality" + plot_extension;
+    c->SaveAs(outputName.c_str());
+
+    delete frame;
+    delete graph_set1;
+    delete graph_set2;
+    delete leg;
+    delete c;
 }
 
-std::vector<std::vector<double, double, double>> GetEventsOnCBin(TFile* inputFile, std::vector<std::pair<double, double>> cBinsSet){
+
+std::vector<std::array<double,3>> GetEventsOnCBin(TFile* inputFile, std::vector<std::pair<double, double>> cBinsSet){
 
     //Get directory
     TDirectory *dir = (TDirectory*)inputFile->Get("PbPb2023_2024_Data");
@@ -95,7 +169,7 @@ std::vector<std::vector<double, double, double>> GetEventsOnCBin(TFile* inputFil
     //Get n of dimuons vs centrality hist
     TH1D *h1D_centrality = (TH1D*)dir->Get("h1D_centrality");
 
-    std::vector<std::vector<double, double, double>> values;
+    std::vector<std::array<double,3>> values;
 
     //Loop over the centrality bins
     for (size_t i = 0; i < cBinsSet.size(); i++){
@@ -116,4 +190,30 @@ std::vector<std::vector<double, double, double>> GetEventsOnCBin(TFile* inputFil
     }
 
     return values;
+}
+
+
+TGraph* FormatGraph(TGraph* graph, Color_t color){
+
+    //Basic formatting
+    graph->SetStats(0);
+    graph->SetTitle("");
+    graph->GetXaxis()->CenterTitle(false);
+    graph->GetYaxis()->CenterTitle(false);
+    graph->GetXaxis()->SetTitleOffset(1.1);
+    graph->GetYaxis()->SetTitleOffset(1.2);
+    graph->GetXaxis()->SetTitleFont(42);
+    graph->GetYaxis()->SetTitleFont(42);
+    graph->GetXaxis()->SetLabelFont(42);
+    graph->GetYaxis()->SetLabelFont(42);
+    graph->GetXaxis()->SetTitleSize(0.042);
+    graph->GetYaxis()->SetTitleSize(0.042);
+
+    //Style graph.
+    graph->SetMarkerStyle(21);
+    graph->SetMarkerSize(0.9);
+    graph->SetMarkerColorAlpha(color+1, 1.);
+    graph->SetLineColorAlpha(color-7, 0.8);
+    graph->SetLineWidth(2);
+    return graph;
 }

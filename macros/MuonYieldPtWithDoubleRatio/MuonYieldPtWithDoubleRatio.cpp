@@ -17,6 +17,11 @@ Double ratio.
 #include <TMath.h>
 #include <TLorentzVector.h>
 #include <TChain.h>
+#include <tuple>
+#include <utility>
+#include <TROOT.h>
+#include <TPad.h>
+#include <TLine.h>
 #include <iostream>
 #include <fstream>
 #include <cstdio>
@@ -30,114 +35,47 @@ Double ratio.
 #include "../headers/basicFormatting.h"
 
 
-//Location of datasets
-//std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
-std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
-
-
 //---Macro settings
 std::string plot_extension = ".pdf"; // ".png" for regular development and ".pdf" for final quality plots
-double delta = 1e-6; //Small value to avoid binning issues when projecting histograms.
+std::string whichDataset = "PbPb2024_Data"; // "PbPb2023_2024_Data", "PbPb2023_Data", "PbPb2024_Data". 
+std::string JointPbPb = "PbPb2024"; //"PbPb2023+2024", "PbPb2023", "PbPb2024".
+std::string dataSamplesUsed = "PbPb 2024, ppRef 2024 (5.36 TeV)"; //"PbPb 2023+2024, ppRef 2024 (5.36 TeV)", 
+                                                                       //"PbPb 2023, ppRef 2024 (5.36 TeV)", 
+                                                                       //"PbPb 2024, ppRef 2024 (5.36 TeV)".
+double delta = 1e-6;
+
 
 double MINZ_MASS = 60.;
 double MAXZ_MASS = 120.;
 double RAPIDITYCUTVALUE = 2.4;
 double ETACUTVALUE = 2.4;
 double PTCUTVALUE = 20.;
-double PTUPPERLIMIT = 70.; //For Chi2 test, to void low statistics points.
+
 
 // ##############################################################################
 // ##############################################################################
 
-//---Enumerates
-enum class SampleType {
-    Data,
-    MC
-};
 
-enum class CollisionSystem {
-    PbPb2023,
-    PbPb2024,
-    ppRef2024
-};
-
-//---Structs
-struct Dataset {
-    std::string name;
-    SampleType type;
-    CollisionSystem system;
-    std::string treeName;
-    std::string filePattern;
-    std::string basePath;
-};
-
-Dataset datasets[] = {
-    {
-        "PbPb2023_Data",
-        SampleType::Data,
-        CollisionSystem::PbPb2023,
-        "hionia/DimuonTree",
-        "HighPtMuons_HLTL2SingleMu_PbPb2023.root",
-        BasePath + "Data/PbPb2023/"
-    },
-
-    {
-        "PbPb2024_Data",
-        SampleType::Data,
-        CollisionSystem::PbPb2024,
-        "hionia/DimuonTree",
-        "HighPtMuons_HLTL2SingleMu_PbPb2024Data.root",
-        BasePath + "Data/PbPb2024/"
-    },
-
-    {
-        "ppRef2024_Data",
-        SampleType::Data,
-        CollisionSystem::ppRef2024,
-        "hionia/DimuonTree",
-        "HighPtMuons_HLTL2SingleMu_ppRef2024.root",
-        BasePath + "Data/ppRef2024/"
-    },
-
-    {
-        "PbPb2024_MC",
-        SampleType::MC,
-        CollisionSystem::PbPb2024,
-        "hionia/myTree",
-        "Oniatree_PowhegZtoMuMu_PbPb2024_*.root",
-        BasePath + "MC/PbPb2024/DYto2Mu_MLL-50_TuneCP5_5p36TeV_powheg-pythia8/PowhegEmbedded_March9/260309_143939/0000/"
-    },
-
-    {
-        "ppRef2024_MC",
-        SampleType::MC,
-        CollisionSystem::ppRef2024,
-        "hionia/myTree",
-        "Oniatree_PowhegZtoMuMu_ppRef2024_*.root",
-        BasePath + "MC/ppRef2024/DYToMuMu_M-50_TuneCP5_5p36TeV_powheg-pythia8/Powheg_ppRefPileup_March20/260320_125046/0000/"
-    }
-};
-
-//Set of centrality bins for PbPb2024 data. We can decide to change the centrality bins later if we want to.
 std::vector<std::pair<double, double>> CentralityBinsSet = {
     {0., 10.},
     {10., 20.},
     {20., 30.},
-    {30., 100.}
+    {30., 100.},
+    {0., 100.}
 };
 
-//Second proposed set of centrality bins for PbPb2024 data.
-/*
-std::vector<std::pair<double, double>> CentralityBinsSet = {
+/*std::vector<std::pair<double, double>> CentralityBinsSet = {
     {0., 10.},
     {10., 30.},
     {30., 50.},
-    {50., 100.}
-};
-//*/
+    {50., 100.},
+    {0., 100.}
+};*/
 
-void MuonPtMuPlMuMiHistWithDoubleRatio(TFile* inputFile, const Dataset& dataset, const Dataset& ref_dataset, double lowCent = 0., double highCent = 100.);
+
+void MuonPtMuPlMuMiHistWithDoubleRatio(TFile* inputFile, std::string whichDataset, std::string refString, double lowCent = 0., double highCent = 100.);
 std::tuple<int, double, double> MakeChi2Test(const TH1D* histRatio);
+
 
 void MuonYieldPtWithDoubleRatio(){
 
@@ -149,17 +87,17 @@ void MuonYieldPtWithDoubleRatio(){
         double highCent = cBin.second;
         std::cout << "> Processing centrality bin: " << lowCent << " - " << highCent << std::endl;
 
-        MuonPtMuPlMuMiHistWithDoubleRatio(inputFile, datasets[1], datasets[2], lowCent, highCent); //PbPb2024 and ppRef2024.
+        MuonPtMuPlMuMiHistWithDoubleRatio(inputFile, whichDataset, "ppRef2024_Data", lowCent, highCent); //PbPb2024 and ppRef2024.
     }
     
-    MuonPtMuPlMuMiHistWithDoubleRatio(inputFile, datasets[1], datasets[2], 0., 100.); //PbPb2024 and ppRef2024, full centrality range.
 }
 
-void MuonPtMuPlMuMiHistWithDoubleRatio(TFile* inputFile, const Dataset& dataset, const Dataset& ref_dataset, double lowCent, double highCent){
+void MuonPtMuPlMuMiHistWithDoubleRatio(TFile* inputFile, std::string whichDataset, std::string refString, double lowCent, double highCent){
 
+    std::string centString = Form("_Cent%.0f-%.0f", lowCent, highCent);
     //Identify the dataset and get the corresponding directory.
-    std::string dirName = dataset.name;
-    std::string ref_dir = ref_dataset.name;
+    std::string dirName = whichDataset;
+    std::string ref_dir = refString;
 
     //Get directory
     TDirectory *dir = inputFile->GetDirectory(dirName.c_str());
@@ -184,11 +122,14 @@ void MuonPtMuPlMuMiHistWithDoubleRatio(TFile* inputFile, const Dataset& dataset,
     //Select centrality range and project onto pT(mu+) vs pT(mu-) plane.
     int binLow = h3D_PtMuPl_PtMuMi_Cent_clone->GetZaxis()->FindBin(lowCent + delta);
     int binHigh = h3D_PtMuPl_PtMuMi_Cent_clone->GetZaxis()->FindBin(highCent - delta);
+
     std::cout << "> Centrality range: " << lowCent << " - " << highCent << std::endl;
+
     h3D_PtMuPl_PtMuMi_Cent_clone->GetZaxis()->SetRange(binLow, binHigh);
+
     TH2D* h2D_PtMuPl_PtMuMi = dynamic_cast<TH2D*>(h3D_PtMuPl_PtMuMi_Cent_clone->Project3D("yx"));
-    h_ogpl = h2D_PtMuPl_PtMuMi->ProjectionX("h_ogpl",1,h2D_PtMuPl_PtMuMi->GetNbinsY(),"e");
-    h_ogmi = h2D_PtMuPl_PtMuMi->ProjectionY("h_ogmi",1,h2D_PtMuPl_PtMuMi->GetNbinsX(),"e");
+    h_ogpl = h2D_PtMuPl_PtMuMi->ProjectionX(("h_ogpl" + centString).c_str(),1,h2D_PtMuPl_PtMuMi->GetNbinsY(),"e");
+    h_ogmi = h2D_PtMuPl_PtMuMi->ProjectionY(("h_ogmi" + centString).c_str(),1,h2D_PtMuPl_PtMuMi->GetNbinsX(),"e");
 
     //Reference histograms.
     h_refpl = dynamic_cast<TH1D*>(refDir->Get("h1D_ptMuPlus"));
@@ -246,23 +187,44 @@ void MuonPtMuPlMuMiHistWithDoubleRatio(TFile* inputFile, const Dataset& dataset,
     h_RefPl_plot->GetXaxis()->SetRangeUser(18., 100.);
     h_RefPl_plot->GetYaxis()->SetTitleOffset(1.);
 
-    h_RefPl_plot->Draw("HIST P");
-    h_RefMi_plot->Draw("HIST P SAME");
+    //Since we plot h_RefPl_plot first, we set the maximum on it:
+    /*double maxY = std::max({
+        h_PtMuPl_plot->GetMaximum(),
+        h_PtMuMi_plot->GetMaximum(),
+        h_RefPl_plot->GetMaximum(),
+        h_RefMi_plot->GetMaximum()
+    });
+    h_RefPl_plot->SetMaximum(1.25 * maxY);*/
+
+    //Draw.
+    //h_RefPl_plot->Draw("HIST P");
+    //h_RefMi_plot->Draw("HIST P SAME");
 
     //Filling histogram with PbPb values. No border.
-    auto* fillPl = static_cast<TH1*>(h_PtMuPl_plot->Clone("h_fill"));
+    auto* fillPl = static_cast<TH1*>(h_PtMuPl_plot->Clone(("h_fillPl" + centString).c_str()));
     fillPl->SetDirectory(nullptr);
     fillPl->SetFillStyle(1001);
     fillPl->SetFillColorAlpha(kRed-10, 0.6);
     fillPl->SetLineColorAlpha(kRed-10, 0.0);
-    fillPl->Draw("HIST ][ SAME");
+    //fillPl->Draw("HIST ][ SAME");
 
-    auto* fillMi = static_cast<TH1*>(h_PtMuMi_plot->Clone("h_fill"));
+    auto* fillMi = static_cast<TH1*>(h_PtMuMi_plot->Clone(("h_fillMi" + centString).c_str()));
     fillMi->SetDirectory(nullptr);
     fillMi->SetFillStyle(1001);
     fillMi->SetFillColorAlpha(kBlue-10, 0.6);
     fillMi->SetLineColorAlpha(kBlue-10, 0.0);
+    //fillMi->Draw("HIST ][ SAME");
+
+
+    //Testing new draw style. Axis first, then fill, then points.
+    h_RefPl_plot->Draw("AXIS");
+
+    fillPl->Draw("HIST ][ SAME");
     fillMi->Draw("HIST ][ SAME");
+
+    h_RefPl_plot->Draw("P SAME");
+    h_RefMi_plot->Draw("P SAME");
+
 
     //Selections and cuts
     drawLatexText(Form("p_{T} > %.0f GeV, |#eta| < %.1f", PTCUTVALUE, ETACUTVALUE), 0.7, 0.3, 0.03);
@@ -372,16 +334,28 @@ void MuonPtMuPlMuMiHistWithDoubleRatio(TFile* inputFile, const Dataset& dataset,
     c->cd();
     drawLatexText("#bf{CMS}", 0.11, 0.96, 0.035);
     drawLatexText("#it{Work in Progress}", 0.2, 0.96, 0.025);
-    drawLatexText("PbPb 2024, ppRef 2024", 0.7, 0.96, 0.025);
+    drawLatexText(dataSamplesUsed.c_str(), 0.7, 0.96, 0.025);
     drawLatexText(Form("#chi^{2}/ndf = %.2f/%d", chi2, ndf), 0.67, 0.72, 0.022);
     drawLatexText(Form("p-value = %.2f", pValue), 0.67, 0.69, 0.022);
 
     //Save
-    std::string centString = Form("_Cent%.0f-%.0f", lowCent, highCent);
     std::string output = "MuonPtMuPlMuMiHistWithDoubleRatio" + centString + plot_extension;
     c->Update();
     c->SaveAs(output.c_str());
 
+    //Clean owned memory
+    delete fillPl;
+    delete fillMi;
+    delete h_PtMuPl_plot;
+    delete h_PtMuMi_plot;
+    delete h_RefPl_plot;
+    delete h_RefMi_plot;
+    delete h_RefPl;
+    delete h_RefMi;
+    delete h_ogpl;
+    delete h_ogmi;
+    delete h2D_PtMuPl_PtMuMi;
+    delete h3D_PtMuPl_PtMuMi_Cent_clone;
     delete h_PtMuPl;
     delete h_PtMuMi;
     delete histRatio;
@@ -393,8 +367,8 @@ void MuonPtMuPlMuMiHistWithDoubleRatio(TFile* inputFile, const Dataset& dataset,
 
 std::tuple<int, double, double> MakeChi2Test(const TH1D* histRatio){
 
-    double ptMin = PTCUTVALUE;
-    double ptMax = PTUPPERLIMIT;
+    double ptMin = 40.;
+    double ptMax = 65.;
 
     TF1* nullHypothesis = new TF1("nullHypothesis","1.0",ptMin,ptMax);
 

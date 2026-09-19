@@ -49,22 +49,22 @@ double PTCUTVALUE = 20.;
 
 
 //Set of centrality bins for PbPb2024 data.
-/*std::vector<std::pair<double, double>> CentralityBinsSet = {
+std::vector<std::pair<double, double>> CentralityBinsSet = {
     {0., 10.},
     {10., 20.},
     {20., 30.},
     {30., 100.},
     {0., 100.}
-};*/
+};
 
 //Second proposed set of centrality bins for PbPb2024 data.
-std::vector<std::pair<double, double>> CentralityBinsSet = {
+/*std::vector<std::pair<double, double>> CentralityBinsSet = {
     {0., 10.},
     {10., 30.},
     {30., 50.},
     {50., 100.},
     {0., 100.}
-};
+};*/
 //
 
 void MuonPtMuPlMuMiHistWithSingleRatio(TFile* inputFile, std::string datasetName, double lowCent = 0., double highCent = 100.);
@@ -144,16 +144,16 @@ void MuonPtMuPlMuMiHistWithSingleRatio(TFile* inputFile, std::string datasetName
 
     h_PtMuPl->SetFillStyle(0);
     h_PtMuPl->SetLineWidth(1);
-    h_PtMuPl->SetLineColorAlpha(kRed+1, 0.8);
+    h_PtMuPl->SetLineColorAlpha(kRed-7, 0.8);
     h_PtMuPl->SetMarkerStyle(20);
-    h_PtMuPl->SetMarkerSize(0.6);
+    h_PtMuPl->SetMarkerSize(0.5);
     h_PtMuPl->SetMarkerColorAlpha(kRed+1, 1.);
 
     h_PtMuMi->SetFillStyle(0);
     h_PtMuMi->SetLineWidth(1);
-    h_PtMuMi->SetLineColorAlpha(kBlue+1, 0.8);
+    h_PtMuMi->SetLineColorAlpha(kBlue-7, 0.8);
     h_PtMuMi->SetMarkerStyle(20);
-    h_PtMuMi->SetMarkerSize(0.6);
+    h_PtMuMi->SetMarkerSize(0.5);
     h_PtMuMi->SetMarkerColorAlpha(kBlue+1, 1.);
 
     h_PtMuPl->GetXaxis()->SetTitle("p_{T} [GeV/c]");
@@ -168,7 +168,7 @@ void MuonPtMuPlMuMiHistWithSingleRatio(TFile* inputFile, std::string datasetName
     auto* fillPl = static_cast<TH1*>(h_PtMuPl->Clone("h_fill"));
     fillPl->SetDirectory(nullptr);
     fillPl->SetFillStyle(1001);
-    fillPl->SetFillColorAlpha(kRed-10, 0.6);
+    fillPl->SetFillColorAlpha(kRed-10, 0.55);
     fillPl->SetLineColorAlpha(kRed-10, 0.0);
     fillPl->Draw("HIST ][ SAME");
 
@@ -195,7 +195,7 @@ void MuonPtMuPlMuMiHistWithSingleRatio(TFile* inputFile, std::string datasetName
     drawLatexText(Form("p_{T} > %.0f GeV, |#eta| < %.1f", PTCUTVALUE, ETACUTVALUE), 0.7, 0.3, 0.03);
     drawLatexText(Form("|y| < %.1f", RAPIDITYCUTVALUE), 0.7, 0.25, 0.03);
     drawLatexText(Form("%.0f < M_{#mu#mu} < %.0f GeV", MINZ_MASS, MAXZ_MASS), 0.7, 0.2, 0.03);
-    drawLatexText(Form("Centrality: %.0f - %.0f %%", lowCent, highCent), 0.7, 0.15, 0.03);
+    if(datasetName != "ppRef2024_Data") drawLatexText(Form("Centrality: %.0f - %.0f %%", lowCent, highCent), 0.7, 0.15, 0.03);
 
     TLegend* leg = new TLegend(0.75, 0.75, 0.94, 0.86);
     basicLegendFormatting(leg);
@@ -280,7 +280,7 @@ void MuonPtMuPlMuMiHistWithSingleRatio(TFile* inputFile, std::string datasetName
     c->cd();
     drawLatexText("#bf{CMS}", 0.11, 0.95, 0.04);
     drawLatexText("#it{Work in Progress}", 0.2, 0.95, 0.026);
-    if(datasetName != "ppRef2024_Data") drawLatexText("PbPb 2023+2024 (5.36 TeV)", 0.6, 0.95, 0.026);
+    if(datasetName != "ppRef2024_Data") drawLatexText(dataSamplesUsed.c_str(), 0.6, 0.95, 0.026);
     else if(datasetName == "ppRef2024_Data") drawLatexText("ppRef 2024 (5.36 TeV)", 0.7, 0.95, 0.026);
     drawLatexText(Form("#chi^{2}/ndf = %.2f/%d", chi2, ndf), 0.67, 0.72, 0.022);
     drawLatexText(Form("p-value = %.2f", pValue), 0.67, 0.69, 0.022);
