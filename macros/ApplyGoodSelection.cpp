@@ -29,8 +29,8 @@ PbPb 2023, PbPb 2024, and ppRef 2024.
 
 
 //Location of datasets
-std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
-//std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
+//std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
+std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
 
 
 //Good Selection values
