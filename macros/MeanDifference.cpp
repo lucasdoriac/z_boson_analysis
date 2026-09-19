@@ -1,5 +1,6 @@
 /*
 Mean and peak difference as function of centrality bin.
+Needs to be directly from the TREE because any projected histogram loses their statistics from the filling time.
 */
 
 //---Libraries
@@ -30,19 +31,121 @@ Mean and peak difference as function of centrality bin.
 
 //---Macro settings
 std::string plot_extension = ".pdf"; // ".png" for regular development and ".pdf" for final quality plots
-double delta = 1e-6; //Small value to avoid binning issues when projecting histograms.
+std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
+//std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
+std::string dataSamplesUsed = "PbPb 2023+2024, ppRef 2024 (5.36 TeV)";
+
+
+//Good selection threshold values
+const double MAX_ZVTX = 15.0;
+
+const double MINZ_MASS = 60.;
+const double MAXZ_MASS = 120.;
+const double RAPIDITYCUTVALUE = 2.4;
+
+const float ETACUTVALUE = 2.4;
+const double PTCUTVALUE = 20.;
 
 
 // ##############################################################################
 // ##############################################################################
 
+
+//---Enumerates
+enum class SampleType {
+    Data,
+    MC
+};
+
+enum class CollisionSystem {
+    PbPb2023,
+    PbPb2024,
+    ppRef2024
+};
+
+//---Structs
+struct Dataset {
+    std::string name;
+    SampleType type;
+    CollisionSystem system;
+    std::string treeName;
+    std::string filePattern;
+    std::string basePath;
+
+    bool hasCentrality;//Or maybe is AA
+    bool applyTrigger;
+    ULong64_t triggerBit;
+};
+
+Dataset datasets[] = {
+    {
+        "PbPb2023_Data",
+        SampleType::Data,
+        CollisionSystem::PbPb2023,
+        "hionia/DimuonTree",
+        "HighPtMuons_HLTL2SingleMu_PbPb2023.root",
+        BasePath + "Data/PbPb2023/",
+        true,
+        true,
+        1ULL << 6 //'HLT_HIL2SingleMu7_v'
+    },
+
+    {
+        "PbPb2024_Data",
+        SampleType::Data,
+        CollisionSystem::PbPb2024,
+        "hionia/DimuonTree",
+        "HighPtMuons_HLTL2SingleMu_PbPb2024Data.root",
+        BasePath + "Data/PbPb2024/",
+        true,
+        true,
+        1ULL << 7 //'HLT_HIL2SingleMu12_v'
+    },
+
+    {
+        "ppRef2024_Data",
+        SampleType::Data,
+        CollisionSystem::ppRef2024,
+        "hionia/DimuonTree",
+        "HighPtMuons_HLTL2SingleMu_ppRef2024.root",
+        BasePath + "Data/ppRef2024/",
+        false,
+        false,
+        0ULL
+    },
+
+    {
+        "PbPb2024_MC",
+        SampleType::MC,
+        CollisionSystem::PbPb2024,
+        "hionia/myTree",
+        "Oniatree_PowhegZtoMuMu_PbPb2024_*.root",
+        BasePath + "MC/PbPb2024/DYto2Mu_MLL-50_TuneCP5_5p36TeV_powheg-pythia8/PowhegEmbedded_March9/260309_143939/0000/",
+        false,
+        false,
+        0ULL
+    },
+
+    {
+        "ppRef2024_MC",
+        SampleType::MC,
+        CollisionSystem::ppRef2024,
+        "hionia/myTree",
+        "Oniatree_PowhegZtoMuMu_ppRef2024_*.root",
+        BasePath + "MC/ppRef2024/DYToMuMu_M-50_TuneCP5_5p36TeV_powheg-pythia8/Powheg_ppRefPileup_March20/260320_125046/0000/",
+        false,
+        false,
+        0ULL
+    }
+};
 
 //Set of centrality bins for PbPb2024 data. We can decide to change the centrality bins later if we want to.
 std::vector<std::pair<double, double>> CentralityBinsSet = {
     {0., 10.},
     {10., 20.},
     {20., 30.},
-    {30., 100.}
+    {30., 100.},
+    {0., 100.}
 };
 
 //Second proposed set of centrality bins for PbPb2024 data.
@@ -50,7 +153,8 @@ std::vector<std::pair<double, double>> CentralityBinsSet = {
     {0., 10.},
     {10., 30.},
     {30., 50.},
-    {50., 100.}
+    {50., 100.},
+    {0., 100.}
 };*/
 
 //Vector to save data for TGraphErrors at the end.
