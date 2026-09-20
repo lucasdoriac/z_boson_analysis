@@ -157,15 +157,22 @@ std::vector<std::pair<double, double>> CentralityBinsSet = {
     {0., 100.}
 };*/
 
+
+//Vectors to store mean and peak
+std::vector<std::pair<double, double>> PbPbMean;
+std::vector<std::pair<double, double>> ppRefMean;
+std::vector<std::pair<double, double>> PbPbPeak;
+std::vector<std::pair<double, double>> ppRefPeak;
+
 //Vector to save data for TGraphErrors at the end.
 std::vector<std::pair<double, double>> MeanDifferenceAndError_PbPb_vs_ppRef;
 
 //Vectors to save peak difference and error.
-std::vector<std::pair<double, double>> PeakDiffAndError_ppRef;
 std::vector<std::pair<double, double>> PeakDifferenceAndError_PbPb_vs_ppRef;
 
 
-void CalculateMeanDiff(const Dataset& dataset, double lowCent, double highCent, std::vector<double>& meanDiffValues);
+void FillPtHistograms(const Dataset& dataset, double lowCent, double highCent, TH1D* h_MuPl, TH1D* h_MuMi);
+void GetMeanDifference(double lowCent, double highCent, TH1D* h_MuPl, TH1D* h_MuMi);
 
 
 //---Main function()
@@ -173,31 +180,128 @@ void NewMeanDifference(){
 
     gROOT->SetBatch(kTRUE);
 
-    //Calculate MeanDiff for ppRef2024 dataset.
-    std::vector<double> Values_ppRef;
-    CalculatePtRelativeDiff(datasets[2], 0., 100., Values_ppRef);
-    //FillResultStructFromVector(false, 0., 100., Values_ppRef);
-
+    //Histograms to calculate statistics from.
+    TH1D* h_MuPl = new TH1D("h_MuPl", "Muon Plus pT; pT [GeV]; Entries", 100, 0., 100.);
+    TH1D* h_MuMi = new TH1D("h_MuMi", "Muon Minus pT; pT [GeV]; Entries", 100, 0., 100.);
+    
     //Now for PbPb2024 dataset. Loop over centrality bins. 
-    for(const auto& centralityBin : CentralitySet){
+    for(const auto& cBin : CentralitySet){
 
-        std::cout << "\nCalculating PtRelDiff for centrality bin: " << centralityBin.first << "-" << centralityBin.second << "%\n";
+        std::cout << "\nCalculating Mean Diff for centrality bin: " << cBin.first << "-" << cBin.second << "%\n";
 
-        //Vector to calculate statistics from.
-        std::vector<double> ptRelDiffValues;
-        CalculatePtRelativeDiff(datasets[0], centralityBin.first, centralityBin.second, ptRelDiffValues); //PbPb2023 dataset
-        CalculatePtRelativeDiff(datasets[1], centralityBin.first, centralityBin.second, ptRelDiffValues); //PbPb2024 dataset
-
-        //Fill a struct that contains statistics for each centrality.
-        FillResultStructFromVector(true, centralityBin.first, centralityBin.second, ptRelDiffValues);
+        FillPtHistograms(datasets[0], cBin.first, cBin.second, h_MuPl, h_MuMi); //PbPb2023 dataset
+        FillPtHistograms(datasets[1], cBin.first, cBin.second, h_MuPl, h_MuMi); //PbPb2024 dataset
+        GetMeanDifference(cBin.first, cBin.second, h_MuPl, h_MuMi);
     }
 
-    PlotMeanDifference();
-    PlotPeakDifference();
+    FillPtHistograms(datasets[2], cBin.first, cBin.second, h_MuPl, h_MuMi); //PbPb2024 dataset
+    GetMeanDifference(cBin.first, cBin.second, h_MuPl, h_MuMi);
+
+    //PlotMeanDifference();
+    //PlotPeakDifference();
 }
 
 
-std::pair<double, double> CalculateMeanDiff(const Dataset& dataset, double lowCent, double highCent, std::vector<double>& meanDiffValues) {
+void PlotMeanDifference() {
+
+    int nPoints = MeanDifferenceAndError_PbPb_vs_ppRef.size();
+    if(nPoints != CentralitySet.size()){
+        std::cerr << "Error: Number of points in DeltaPtAndError does not match number of centrality bins." << std::endl;
+        return;
+    }
+
+    std::vector<double> xValues(nPoints);
+    std::vector<double> yValues(nPoints);
+    std::vector<double> xErrors(nPoints);
+    std::vector<double> yErrors(nPoints);
+
+    for(int i = 0; i < nPoints; ++i){
+        xValues[i] = i+1;
+        xErrors[i] = 0.;
+        yValues[i] = MeanDifferenceAndError_PbPb_vs_ppRef[i].first;
+        yErrors[i] = MeanDifferenceAndError_PbPb_vs_ppRef[i].second
+    }
+
+
+    //TGraphErrors
+    TGraphErrors* graph = new TGraphErrors(nPoints, xValues.data(), yValues.data(), xErrors.data(), yErrors.data());
+    basicGraphFormatting(graph);
+
+    //Plot
+    TCanvas* c = new TCanvas("c", "Mean diff vs Centrality", 800, 600);
+    basicCanvasFormatting(c);
+
+    //Frame TH1 helper to set the x-axis labels for centrality bins.
+    TH1D* frame = new TH1D("frame_mean", "", nPoints, 0.5, nPoints + 0.5);
+    basicHistFormatting(frame);
+    for(int i = 0; i < nPoints; ++i){
+        std::string label = Form("%.0f-%.0f%%", CentralitySet[i].first, CentralitySet[i].second);
+        frame->GetXaxis()->SetBinLabel(i + 1,label.c_str());
+    }
+
+    //Give range information to new frame histogram:
+    double yMin = yValues[0] - yErrors[0];
+    double yMax = yValues[0] + yErrors[0];
+    for(int i = 1; i < nPoints; ++i){
+        yMin = std::min(yMin,yValues[i] - yErrors[i]);
+        yMax = std::max(yMax,yValues[i] + yErrors[i]);
+    }
+    double yRange = yMax - yMin;
+    yMin -= 0.20 * yRange;
+    yMax += 0.20 * yRange;
+    
+    //Make sure zero is visible:
+    yMin = std::min(yMin, 0.0);
+    yMax = std::max(yMax, 0.0);
+    frame->SetMinimum(yMin);
+    frame->SetMaximum(yMax);
+    //
+
+    frame->GetXaxis()->SetTickLength(0.0);
+    frame->GetXaxis()->SetTitle("Centrality bin");
+    frame->GetYaxis()->SetTitle("#bar{p_{T}}^{PbPb} - #bar{p_{T}}^{ppRef}");
+    frame->GetYaxis()->CenterTitle(true);
+    frame->GetYaxis()->SetTitleOffset(1.4);
+
+    //Draw only the axis frame.
+    frame->Draw("AXIS");
+
+    //Format graph.
+    graph->SetMarkerStyle(20);
+    graph->SetMarkerSize(0.9);
+    graph->SetMarkerColorAlpha(kRed+1, 1.);
+    graph->SetLineColorAlpha(kRed-7, 0.8);
+    graph->SetLineWidth(2);
+
+    graph->Draw("P SAME");
+
+    //Grey line at y=0
+    TLine* line = new TLine(0.5, 0.0, 0.5+nPoints, 0.0);
+    line->SetLineColor(kGray);
+    line->SetLineStyle(7);
+    line->SetLineWidth(2);
+    line->Draw();
+
+    drawLatexText("#bf{CMS}", 0.14, 0.93, 0.04);
+    drawLatexText("#it{Work in Progress}", 0.21, 0.93, 0.03);
+    drawLatexText(dataSamplesUsed.c_str(), 0.55, 0.93, 0.03);
+    
+    //Plot specifications
+    drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.2, 0.8, 0.03);
+    drawLatexText("60 < M_{#mu#mu} < 120 GeV", 0.2, 0.75, 0.03);
+
+    c->Update();
+    std::string outputName = "MeanDiff_vs_Centrality_FromTree" + plot_extension;
+    c->SaveAs(outputName.c_str());
+
+    delete frame;
+    delete line;
+    delete graph;
+    delete c;
+}
+
+
+void FillPtHistograms(const Dataset& dataset, double lowCent, double highCent, TH1D* h_MuPl, TH1D* h_MuMi) {
 
     // Load root file.
     std::string fullPath = dataset.basePath + dataset.filePattern;
@@ -289,8 +393,8 @@ std::pair<double, double> CalculateMeanDiff(const Dataset& dataset, double lowCe
 
 
     //dN/dpT histograms for MuPl and MuMi.
-    TH1D* h_MuPl = new TH1D("h_MuPl", "Muon Plus pT; pT [GeV]; Entries", 100, 0., 100.);
-    TH1D* h_MuMi = new TH1D("h_MuMi", "Muon Minus pT; pT [GeV]; Entries", 100, 0., 100.);
+    //TH1D* h_MuPl = new TH1D("h_MuPl", "Muon Plus pT; pT [GeV]; Entries", 100, 0., 100.);
+    //TH1D* h_MuMi = new TH1D("h_MuMi", "Muon Minus pT; pT [GeV]; Entries", 100, 0., 100.);
 
 
     //Event-level cut values.
@@ -369,7 +473,7 @@ std::pair<double, double> CalculateMeanDiff(const Dataset& dataset, double lowCe
 
             bool goodMuMi = (ptminus > ptCutValue)
                             && (std::abs(etaminus) < EtaCutValue)
-                            && (MuMiIsTight);
+                            && (MuMiIsTight);FillPtHistograms
 
             if (!goodMuPl || !goodMuMi) continue;
             //End of good selection for dimuon candidate j of event i.
@@ -395,16 +499,16 @@ std::pair<double, double> CalculateMeanDiff(const Dataset& dataset, double lowCe
 
     }//Exiting event-by-event loop.
 
-    //Calculate mean difference and error.
-    double meanMuPl = h_MuPl->GetMean();
-    double meanMuMi = h_MuMi->GetMean();
-    double meanDiff = meanMuPl - meanMuMi;
-    double meanErrorMuPl = h_MuPl->GetMeanError();
-    double meanErrorMuMi = h_MuMi->GetMeanError();
-    double meanErrorDiff = std::sqrt(std::pow(meanErrorMuPl, 2) + std::pow(meanErrorMuMi, 2));
-
-
-    delete h_MuPl;
-    delete h_MuMi;
     delete chain;
+}
+
+
+void GetMeanDifference(double lowCent, double highCent, TH1D* h_MuPl, TH1D* h_MuMi){
+
+    h_MuPl->GetMean();
+    h_MuPl->GetMeanError();
+    h_MuMi->GetMean();
+    h_MuMi->GetMeanError();
+
+    
 }
