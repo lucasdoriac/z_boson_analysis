@@ -286,13 +286,7 @@ void PlotSkewnessRelativeDiff(){
     graph->SetLineColorAlpha(kGreen-7, 0.8);
     graph->SetLineWidth(2);
 
-    //Axes configurations
-    //graph->GetXaxis()->SetLimits(0, 100);
-    //graph->GetXaxis()->SetTitle("Centrality (%)");
-    //graph->GetYaxis()->SetTitle("#LT#Delta p_{T}^{rel}#GT_{PbPb} - #LT#Delta p_{T}^{rel}#GT_{ppRef}");
-    //graph->GetYaxis()->CenterTitle(true);
-    //graph->GetYaxis()->SetTitleOffset(1.4);
-
+    //Draw
     graph->Draw("P SAME");
 
     //Grey line at y=0

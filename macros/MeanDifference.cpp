@@ -1,6 +1,9 @@
 /*
 Mean and peak difference as function of centrality bin.
 Needs to be directly from the TREE because any projected histogram loses their statistics from the filling time.
+
+**Important**: If we want the skewness of this distribution as well we need to modify this code
+to calculate the skewness directly from the Tree.
 */
 
 //---Libraries
@@ -31,8 +34,8 @@ Needs to be directly from the TREE because any projected histogram loses their s
 
 //---Macro settings
 std::string plot_extension = ".pdf"; // ".png" for regular development and ".pdf" for final quality plots
-std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
-//std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
+//std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
+std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
 std::string dataSamplesUsed = "PbPb 2023+2024, ppRef 2024 (5.36 TeV)";
 
 
@@ -140,273 +143,133 @@ Dataset datasets[] = {
 };
 
 //Set of centrality bins for PbPb2024 data. We can decide to change the centrality bins later if we want to.
-std::vector<std::pair<double, double>> CentralityBinsSet = {
+/*std::vector<std::pair<double, double>> CentralitySet = {
     {0., 10.},
     {10., 20.},
     {20., 30.},
     {30., 100.},
     {0., 100.}
-};
+};*/
 
 //Second proposed set of centrality bins for PbPb2024 data.
-/*std::vector<std::pair<double, double>> CentralityBinsSet = {
+std::vector<std::pair<double, double>> CentralitySet = {
     {0., 10.},
     {10., 30.},
     {30., 50.},
     {50., 100.},
     {0., 100.}
-};*/
+};
+
+
+//Vectors to store mean and peak
+std::vector<std::pair<double, double>> PbPbMean;
+std::vector<std::pair<double, double>> ppRefMean;
+
+std::vector<std::pair<double, double>> PbPbPeak;
+std::vector<std::pair<double, double>> ppRefPeak;
 
 //Vector to save data for TGraphErrors at the end.
-std::vector<std::pair<double, double>> MeanDifferenceAndError_PbPb_vs_ppRef;
+std::vector<std::pair<double, double>> MeanDiffAndError_PbPb_vs_ppRef;
 
 //Vectors to save peak difference and error.
-std::vector<std::pair<double, double>> PeakDiffAndError_ppRef;
-std::vector<std::pair<double, double>> PeakDifferenceAndError_PbPb_vs_ppRef;
+std::vector<std::pair<double, double>> PeakDiffAndError_PbPb_vs_ppRef;
 
-//---Function declarations
-std::pair<double, double> Get_ppRefValues(TFile* inputFile);
-void CalculateMeanDifference_PbPb_vs_ppRef(TFile* inputFile, double lowCent, double highCent, std::pair<double, double> ppRefValues);
-void PlotMeanDifference_PbPb_vs_ppRef();
-void CalculatePeakDifference_PbPb_vs_ppRef(TFile* inputFile, double lowCent, double highCent, std::pair<double, double> ppRefValues);
-void PlotPeakDifference_PbPb_vs_ppRef();
 
-//---Main()
+void FillPtHistograms(const Dataset& dataset, double lowCent, double highCent, TH1D* h_MuPl, TH1D* h_MuMi);
+void GetMeanAndPeakDifference(const Dataset& dataset, TH1D* h_MuPl, TH1D* h_MuMi);
+void PlotMeanDifference();
+void PlotPeakDifference();
+
+
+//---Main function()
 void MeanDifference(){
 
     gROOT->SetBatch(kTRUE);
+    
+    //Clear vectors to avoid contamination from previous runs.
+    PbPbMean.clear();
+    ppRefMean.clear();
+    PbPbPeak.clear();
+    ppRefPeak.clear();
+    MeanDiffAndError_PbPb_vs_ppRef.clear();
+    PeakDiffAndError_PbPb_vs_ppRef.clear();
 
-    MeanDifferenceAndError_PbPb_vs_ppRef.clear();
-    PeakDiffAndError_ppRef.clear();
-    PeakDifferenceAndError_PbPb_vs_ppRef.clear();
 
-    TFile* inputFile = new TFile("mySelectedData.root", "READ");
+    //Histograms to calculate statistics from.
+    TH1D* h_MuPl = new TH1D("h_MuPl", "Muon Plus pT; pT [GeV]; Entries", 100, 0., 100.);
+    TH1D* h_MuMi = new TH1D("h_MuMi", "Muon Minus pT; pT [GeV]; Entries", 100, 0., 100.);
+    
 
-    //Get ppRef values for mean difference between pT of mu+ and mu- and respective error of measurement.
-    //Peak difference and error will also be saved in the global vector PeakDiffAndError_ppRef.
-    std::pair<double, double> ppRefValues = Get_ppRefValues(inputFile);
+    //Get reference values.
+    FillPtHistograms(datasets[2], 0., 100., h_MuPl, h_MuMi); //ppRef2024 dataset
+    GetMeanAndPeakDifference(datasets[2], h_MuPl, h_MuMi);
 
-    for(const auto& centBin : CentralityBinsSet) {
-        double lowCent = centBin.first;
-        double highCent = centBin.second;
-        CalculateMeanDifference_PbPb_vs_ppRef(inputFile, lowCent, highCent, ppRefValues);
-        CalculatePeakDifference_PbPb_vs_ppRef(inputFile, lowCent, highCent, PeakDiffAndError_ppRef[0]); //Using the peak difference and error from ppRef as reference.
+
+    //Now for PbPb2024 dataset. Loop over centrality bins. 
+    for(const auto& cBin : CentralitySet){
+
+        //Clear histograms before each centrality call..
+        h_MuPl->Reset();
+        h_MuMi->Reset();
+
+        std::cout << "\nCalculating Mean Diff for centrality bin: " << cBin.first << "-" << cBin.second << "%\n";
+
+        FillPtHistograms(datasets[0], cBin.first, cBin.second, h_MuPl, h_MuMi); //PbPb2023 dataset
+        FillPtHistograms(datasets[1], cBin.first, cBin.second, h_MuPl, h_MuMi); //PbPb2024 dataset
+
+        //Histograms contain PbPb2023+2024 at this point.
+        //datasets[1] is passed only to identify this as a PbPb result.
+        GetMeanAndPeakDifference(datasets[1], h_MuPl, h_MuMi);
     }
 
-    PlotMeanDifference_PbPb_vs_ppRef();
-    PlotPeakDifference_PbPb_vs_ppRef();
-    inputFile->Close();
+    PlotMeanDifference();
+    PlotPeakDifference();
+
+    delete h_MuPl;
+    delete h_MuMi;
 }
 
-void PlotPeakDifference_PbPb_vs_ppRef(){
+void PlotPeakDifference(){
 
-    int nPoints = PeakDifferenceAndError_PbPb_vs_ppRef.size();
-    if(nPoints != CentralityBinsSet.size()){
-            std::cerr << "Error: Number of points in PeakDifferenceAndError does not match number of centrality bins." << std::endl;
-            return;
+    //Calculate relative difference to reference sample:
+    for(size_t i = 0; i < PbPbPeak.size(); ++i){
+        double peakDiff = PbPbPeak[i].first - ppRefPeak[0].first;
+        double peakError = std::sqrt(std::pow(PbPbPeak[i].second, 2) + std::pow(ppRefPeak[0].second, 2));
+        PeakDiffAndError_PbPb_vs_ppRef.push_back(std::make_pair(peakDiff, peakError));
     }
 
-    std::vector<double> xValues(nPoints);
-    std::vector<double> yValues(nPoints);
-    std::vector<double> xErrors(nPoints);
-    std::vector<double> yErrors(nPoints);
-
-    for(int i = 0; i < nPoints; ++i){
-        xValues[i] = i + 1;
-        xErrors[i] = 0.;
-        yValues[i] = PeakDifferenceAndError_PbPb_vs_ppRef[i].first;
-        yErrors[i] = PeakDifferenceAndError_PbPb_vs_ppRef[i].second;
-    }
-
-    //This block is outdated because i opted to plot with cBins as x-coordinates.
-    //Get values that will be plotted with TGraphErrors.
-    /*for(int i = 0; i < nPoints; i++){
-
-        xValues[i] = (CentralityBinsSet[i].first + CentralityBinsSet[i].second) / 2.0;//Centrality bin center for now.
-        xErrors[i] = (CentralityBinsSet[i].second - CentralityBinsSet[i].first) / 2.0;//Half-width of the centrality bin.
-        yValues[i] = PeakDifferenceAndError_PbPb_vs_ppRef[i].first;
-        yErrors[i] = PeakDifferenceAndError_PbPb_vs_ppRef[i].second;
-    }*/
-
-    //Set the TGraphErrors
-    TGraphErrors* graph = new TGraphErrors(nPoints, xValues.data(), yValues.data(), xErrors.data(), yErrors.data());
-    basicGraphFormatting(graph);
-
-    //Create canvas.
-    TCanvas* c = new TCanvas("c", "c", 800, 600);
-    basicCanvasFormatting(c);
-
-    //Frame TH1 helper to set the x-axis labels for centrality bins.
-    TH1D* frame = new TH1D("frame","",nPoints,0.5,nPoints + 0.5);
-    basicHistFormatting(frame);
-    for(int i = 0; i < nPoints; ++i){
-        std::string label = Form("%.0f-%.0f%%", CentralityBinsSet[i].first, CentralityBinsSet[i].second);
-        frame->GetXaxis()->SetBinLabel(i + 1,label.c_str());
-    }
-
-    //Give range information to new frame histogram:
-    double yMin = yValues[0] - yErrors[0];
-    double yMax = yValues[0] + yErrors[0];
-    for(int i = 1; i < nPoints; ++i){
-        yMin = std::min(yMin,yValues[i] - yErrors[i]);
-        yMax = std::max(yMax,yValues[i] + yErrors[i]);
-    }
-    double yRange = yMax - yMin;
-    yMin -= 0.20 * yRange;
-    yMax += 0.20 * yRange;
-    
-    //Make sure zero is visible:
-    yMin = std::min(yMin, 0.0);
-    yMax = std::max(yMax+1.5, 0.0);
-    frame->SetMinimum(yMin);
-    frame->SetMaximum(yMax);
-    //
-
-    frame->GetXaxis()->SetTickLength(0.0);
-    frame->GetXaxis()->SetTitle("Centrality bin");
-    frame->GetYaxis()->SetTitle("#Delta #bar{p}^{PbPb}_{T} - #Delta #bar{p}^{ppRef}_{T} [GeV/c]");
-
-    //Draw only the axis frame.
-    frame->Draw("AXIS");
-
-    //Format graph.
-    graph->SetMarkerStyle(21);
-    graph->SetMarkerSize(0.9);
-    graph->SetMarkerColorAlpha(kRed+1, 1.);
-    graph->SetLineColorAlpha(kRed-7, 0.8);
-    graph->SetLineWidth(2);
-
-    //Axes configurations. Obsolete.
-    //graph->GetXaxis()->SetLimits(0, 100);
-    //graph->GetXaxis()->SetTitle("Centrality (%)");
-    //graph->GetYaxis()->SetTitle("#Delta p^{PbPb}_{T,peak} - #Delta p^{ppRef}_{T,peak} [GeV/c]");
-    //graph->GetYaxis()->SetTitleOffset(1.3);
-    
-    //Draw
-    graph->Draw("P SAME");
-
-    //Grey line at y=0
-    TLine* line = new TLine(0.5, 0.0, 0.5+nPoints, 0.0);
-    line->SetLineColor(kGray);
-    line->SetLineStyle(7);
-    line->SetLineWidth(2);
-    line->Draw();
-
-    drawLatexText("#bf{CMS}", 0.12, 0.93, 0.042);
-    drawLatexText("#it{Work in Progress}", 0.2, 0.93, 0.033);
-    drawLatexText("PbPb 2024, ppRef 2024 (5.36 TeV)", 0.6, 0.93, 0.033);
-    
-    //Plot specifications
-    drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.22, 0.3, 0.03);
-    drawLatexText("60 < M_{#mu#mu} < 120 GeV", 0.22, 0.25, 0.03);
-
-    c->Update();
-    std::string outputName = "PeakDifference_vs_Centrality" + plot_extension;
-    c->SaveAs(outputName.c_str());
-
-    delete frame;
-    delete line;
-    delete graph;
-    delete c;
-}
-
-void CalculatePeakDifference_PbPb_vs_ppRef(TFile* inputFile, double lowCent, double highCent, std::pair<double, double> ppRefValues){
-
-    //Get directory
-    TDirectory *PbPb_dir = inputFile->GetDirectory("PbPb2024_Data");
-
-    //Original histogram
-    TH3D* h3D_PtMuPl_PtMumi_Cent = dynamic_cast<TH3D*>(PbPb_dir->Get("h3D_PtMuPl_PtMuMi_Cent"));
-    if(!h3D_PtMuPl_PtMumi_Cent) {
-        std::cerr << "Error: Could not find the histogram h3D_PtMuPl_PtMumi_Cent in the input file." << std::endl;
+    int nPoints = PeakDiffAndError_PbPb_vs_ppRef.size();
+    if(nPoints != CentralitySet.size()){
+        std::cerr << "Error: Number of points in DeltaPtAndError does not match number of centrality bins." << std::endl;
         return;
     }
 
-    /*
-    z-axis -> centrality
-    y-axis -> pT of mu-
-    x-axis -> pT of mu+
-    */
-
-    //Make TH2D projection for the specified centrality range.
-    int binLow = h3D_PtMuPl_PtMumi_Cent->GetZaxis()->FindBin(lowCent + delta);
-    int binHigh = h3D_PtMuPl_PtMumi_Cent->GetZaxis()->FindBin(highCent - delta);
-
-    //Select centrality range and project onto pT(mu+) vs pT(mu-) plane.
-    h3D_PtMuPl_PtMumi_Cent->GetZaxis()->SetRange(binLow, binHigh);
-    TH2D* h2D_PtMuPl_PtMumi = dynamic_cast<TH2D*>(h3D_PtMuPl_PtMumi_Cent->Project3D("yx"));
-
-    //Project further into TH1 histograms
-    TH1D* h1D_PtMuPl = dynamic_cast<TH1D*>(h2D_PtMuPl_PtMumi->ProjectionX("h1D_PtMuPl"));
-    TH1D* h1D_PtMuMi = dynamic_cast<TH1D*>(h2D_PtMuPl_PtMumi->ProjectionY("h1D_PtMuMi"));
-
-    //Calculate peak pT of mu+ and mu- in this centrality range.
-    double MuPl_peak = h1D_PtMuPl->GetBinCenter(h1D_PtMuPl->GetMaximumBin());
-    double MuPl_peak_error = h1D_PtMuPl->GetBinWidth(h1D_PtMuPl->GetMaximumBin()); //For now error is taken to be the width of the bin with maximum content.
-    double MuMi_peak = h1D_PtMuMi->GetBinCenter(h1D_PtMuMi->GetMaximumBin());
-    double MuMi_peak_error = h1D_PtMuMi->GetBinWidth(h1D_PtMuMi->GetMaximumBin());
-
-
-    //Calculate the difference and its error in PbPb sample.
-    double PeakDifferencePbPb = MuPl_peak - MuMi_peak;
-    double PeakDifferenceErrorPbPb = std::sqrt(MuPl_peak_error * MuPl_peak_error + MuMi_peak_error * MuMi_peak_error);
-
-
-    //Subtract from reference values.
-    double PeakDifference = PeakDifferencePbPb - ppRefValues.first;
-    //Now with independent error propagation:
-    double PeakDifferenceError = std::sqrt(std::pow(PeakDifferenceErrorPbPb, 2) + std::pow(ppRefValues.second, 2));
-
-    //Store the peak difference and its error for this centrality bin.
-    PeakDifferenceAndError_PbPb_vs_ppRef.push_back(std::make_pair(PeakDifference, PeakDifferenceError));
-
-    delete h2D_PtMuPl_PtMumi;
-}
-
-
-void PlotMeanDifference_PbPb_vs_ppRef(){
-
-    int nPoints = MeanDifferenceAndError_PbPb_vs_ppRef.size();
-    if(nPoints != CentralityBinsSet.size()){
-            std::cerr << "Error: Number of points in DeltaPtAndError does not match number of centrality bins." << std::endl;
-            return;
-    }
-
     std::vector<double> xValues(nPoints);
     std::vector<double> yValues(nPoints);
     std::vector<double> xErrors(nPoints);
     std::vector<double> yErrors(nPoints);
 
     for(int i = 0; i < nPoints; ++i){
-        xValues[i] = i + 1;
+        xValues[i] = i+1;
         xErrors[i] = 0.;
-        yValues[i] = MeanDifferenceAndError_PbPb_vs_ppRef[i].first;
-        yErrors[i] = MeanDifferenceAndError_PbPb_vs_ppRef[i].second;
+        yValues[i] = PeakDiffAndError_PbPb_vs_ppRef[i].first;
+        yErrors[i] = PeakDiffAndError_PbPb_vs_ppRef[i].second;
     }
 
-    //This block is outdated because i opted to plot with cBins as x-coordinates.
-    //Get values that will be plotted with TGraphErrors.
-    /*for(int i = 0; i < nPoints; i++){
 
-        xValues[i] = (CentralityBinsSet[i].first + CentralityBinsSet[i].second) / 2.0;//Centrality bin center for now.
-        xErrors[i] = (CentralityBinsSet[i].second - CentralityBinsSet[i].first) / 2.0;//Half-width of the centrality bin.
-        yValues[i] = MeanDifferenceAndError_PbPb_vs_ppRef[i].first;
-        yErrors[i] = MeanDifferenceAndError_PbPb_vs_ppRef[i].second;
-    }*/
-
-    //Set the TGraphErrors
+    //TGraphErrors
     TGraphErrors* graph = new TGraphErrors(nPoints, xValues.data(), yValues.data(), xErrors.data(), yErrors.data());
     basicGraphFormatting(graph);
 
-    //Create canvas.
-    TCanvas* c = new TCanvas("c", "c", 800, 600);
+    //Plot
+    TCanvas* c = new TCanvas("c", "Peak diff vs Centrality", 800, 600);
     basicCanvasFormatting(c);
 
     //Frame TH1 helper to set the x-axis labels for centrality bins.
-    TH1D* frame = new TH1D("frame","",nPoints,0.5,nPoints + 0.5);
+    TH1D* frame = new TH1D("frame_peak", "", nPoints, 0.5, nPoints + 0.5);
     basicHistFormatting(frame);
     for(int i = 0; i < nPoints; ++i){
-        std::string label = Form("%.0f-%.0f%%", CentralityBinsSet[i].first, CentralityBinsSet[i].second);
+        std::string label = Form("%.0f-%.0f%%", CentralitySet[i].first, CentralitySet[i].second);
         frame->GetXaxis()->SetBinLabel(i + 1,label.c_str());
     }
 
@@ -430,24 +293,20 @@ void PlotMeanDifference_PbPb_vs_ppRef(){
 
     frame->GetXaxis()->SetTickLength(0.0);
     frame->GetXaxis()->SetTitle("Centrality bin");
-    frame->GetYaxis()->SetTitle("#Delta #bar{p}^{PbPb}_{T} - #Delta #bar{p}^{ppRef}_{T} [GeV/c]");
+    frame->GetYaxis()->SetTitle("#Delta p_{T,peak}^{PbPb} - #Delta #bar{p_{T,peak}}^{ppRef}");
+    frame->GetYaxis()->CenterTitle(true);
+    frame->GetYaxis()->SetTitleOffset(1.4);
 
     //Draw only the axis frame.
     frame->Draw("AXIS");
 
     //Format graph.
-    graph->SetMarkerStyle(21);
+    graph->SetMarkerStyle(20);
     graph->SetMarkerSize(0.9);
     graph->SetMarkerColorAlpha(kRed+1, 1.);
     graph->SetLineColorAlpha(kRed-7, 0.8);
     graph->SetLineWidth(2);
 
-    //Axes configurations. Obsolete.
-    //graph->GetXaxis()->SetLimits(0, 100);
-    //graph->GetXaxis()->SetTitle("Centrality (%)");
-    //graph->GetYaxis()->SetTitle("#Delta #bar{p}^{PbPb}_{T} - #Delta #bar{p}^{ppRef}_{T} [GeV/c]");
-    //graph->GetYaxis()->SetTitleOffset(1.3);
-    
     //Draw
     graph->Draw("P SAME");
 
@@ -458,116 +317,381 @@ void PlotMeanDifference_PbPb_vs_ppRef(){
     line->SetLineWidth(2);
     line->Draw();
 
-    drawLatexText("#bf{CMS}", 0.12, 0.93, 0.042);
-    drawLatexText("#it{Work in Progress}", 0.2, 0.93, 0.033);
-    drawLatexText("PbPb 2024, ppRef 2024 (5.36 TeV)", 0.6, 0.93, 0.033);
+    drawLatexText("#bf{CMS}", 0.14, 0.93, 0.04);
+    drawLatexText("#it{Work in Progress}", 0.21, 0.93, 0.03);
+    drawLatexText(dataSamplesUsed.c_str(), 0.55, 0.93, 0.03);
     
     //Plot specifications
-    drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.68, 0.3, 0.03);
-    drawLatexText("60 < M_{#mu#mu} < 120 GeV", 0.68, 0.25, 0.03);
+    drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.2, 0.8, 0.03);
+    drawLatexText("60 < M_{#mu#mu} < 120 GeV", 0.2, 0.75, 0.03);
 
     c->Update();
-    std::string outputName = "MeanDifference_vs_Centrality" + plot_extension;
+    std::string outputName = "PeakDiff_vs_Centrality_FromTree" + plot_extension;
     c->SaveAs(outputName.c_str());
 
-    delete graph;
     delete frame;
     delete line;
+    delete graph;
     delete c;
 }
 
-void CalculateMeanDifference_PbPb_vs_ppRef(TFile* inputFile, double lowCent, double highCent, std::pair<double, double> ppRefValues){
+void PlotMeanDifference() {
 
-    //Get directory
-    TDirectory *PbPb_dir = inputFile->GetDirectory("PbPb2024_Data");
+    //Calculate relative difference to reference sample:
+    for(size_t i = 0; i < PbPbMean.size(); ++i){
+        double meanDiff = PbPbMean[i].first - ppRefMean[0].first;
+        double meanError = std::sqrt(std::pow(PbPbMean[i].second, 2) + std::pow(ppRefMean[0].second, 2));
+        MeanDiffAndError_PbPb_vs_ppRef.push_back(std::make_pair(meanDiff, meanError));
+    }
 
-    //Original histogram
-    TH3D* h3D_PtMuPl_PtMumi_Cent = dynamic_cast<TH3D*>(PbPb_dir->Get("h3D_PtMuPl_PtMuMi_Cent"));
-    if(!h3D_PtMuPl_PtMumi_Cent) {
-        std::cerr << "Error: Could not find the histogram h3D_PtMuPl_PtMumi_Cent in the input file." << std::endl;
+    int nPoints = MeanDiffAndError_PbPb_vs_ppRef.size();
+    if(nPoints != CentralitySet.size()){
+        std::cerr << "Error: Number of points in DeltaPtAndError does not match number of centrality bins." << std::endl;
         return;
     }
 
-    /*
-    z-axis -> centrality
-    y-axis -> pT of mu-
-    x-axis -> pT of mu+
-    */
+    std::vector<double> xValues(nPoints);
+    std::vector<double> yValues(nPoints);
+    std::vector<double> xErrors(nPoints);
+    std::vector<double> yErrors(nPoints);
 
-    //Make TH2D projection for the specified centrality range.
-    int binLow = h3D_PtMuPl_PtMumi_Cent->GetZaxis()->FindBin(lowCent + delta);
-    int binHigh = h3D_PtMuPl_PtMumi_Cent->GetZaxis()->FindBin(highCent - delta);
+    for(int i = 0; i < nPoints; ++i){
+        xValues[i] = i+1;
+        xErrors[i] = 0.;
+        yValues[i] = MeanDiffAndError_PbPb_vs_ppRef[i].first;
+        yErrors[i] = MeanDiffAndError_PbPb_vs_ppRef[i].second;
+    }
 
-    //Select centrality range and project onto pT(mu+) vs pT(mu-) plane.
-    h3D_PtMuPl_PtMumi_Cent->GetZaxis()->SetRange(binLow, binHigh);
-    TH2D* h2D_PtMuPl_PtMumi = dynamic_cast<TH2D*>(h3D_PtMuPl_PtMumi_Cent->Project3D("yx"));
 
-    //Calculate mean pT of mu+ and mu- in this centrality range.
-    double MuPl_mean = h2D_PtMuPl_PtMumi->GetMean(1); //1- x-axis
-    double MuPl_mean_error = h2D_PtMuPl_PtMumi->GetMeanError(1);
+    //TGraphErrors
+    TGraphErrors* graph = new TGraphErrors(nPoints, xValues.data(), yValues.data(), xErrors.data(), yErrors.data());
+    basicGraphFormatting(graph);
 
-    double MuMi_mean = h2D_PtMuPl_PtMumi->GetMean(2); //2- y-axis
-    double MuMi_mean_error = h2D_PtMuPl_PtMumi->GetMeanError(2);
+    //Plot
+    TCanvas* c = new TCanvas("c", "Mean diff vs Centrality", 800, 600);
+    basicCanvasFormatting(c);
 
-    //Calculate the difference and its error in PbPb sample.
-    double MeanDifferencePbPb = MuPl_mean - MuMi_mean;
-    //Error here using completely correlated formula from Lara's reference.
-    double MeanDifferenceErrorPbPb = std::sqrt( std::abs(MuPl_mean_error * MuPl_mean_error - MuMi_mean_error * MuMi_mean_error));
+    //Frame TH1 helper to set the x-axis labels for centrality bins.
+    TH1D* frame = new TH1D("frame_mean", "", nPoints, 0.5, nPoints + 0.5);
+    basicHistFormatting(frame);
+    for(int i = 0; i < nPoints; ++i){
+        std::string label = Form("%.0f-%.0f%%", CentralitySet[i].first, CentralitySet[i].second);
+        frame->GetXaxis()->SetBinLabel(i + 1,label.c_str());
+    }
 
-    //Subtract from reference values.
-    double MeanDifference = MeanDifferencePbPb - ppRefValues.first;
-    //Now with independent error propagation:
-    double MeanDifferenceError = std::sqrt(std::pow(MeanDifferenceErrorPbPb,2) + std::pow(ppRefValues.second,2)); //NEEDS REVIEW. MEASUREMENT MAY BE CORRELATED.
+    //Give range information to new frame histogram:
+    double yMin = yValues[0] - yErrors[0];
+    double yMax = yValues[0] + yErrors[0];
+    for(int i = 1; i < nPoints; ++i){
+        yMin = std::min(yMin,yValues[i] - yErrors[i]);
+        yMax = std::max(yMax,yValues[i] + yErrors[i]);
+    }
+    double yRange = yMax - yMin;
+    yMin -= 0.20 * yRange;
+    yMax += 0.20 * yRange;
+    
+    //Make sure zero is visible:
+    yMin = std::min(yMin, 0.0);
+    yMax = std::max(yMax, 0.0);
+    frame->SetMinimum(yMin);
+    frame->SetMaximum(yMax);
+    //
 
-    //Store the mean difference and its error for this centrality bin.
-    MeanDifferenceAndError_PbPb_vs_ppRef.push_back(std::make_pair(MeanDifference, MeanDifferenceError));
+    frame->GetXaxis()->SetTickLength(0.0);
+    frame->GetXaxis()->SetTitle("Centrality bin");
+    frame->GetYaxis()->SetTitle("#Delta #bar{p_{T}}^{PbPb} - #Delta #bar{p_{T}}^{ppRef}");
+    frame->GetYaxis()->CenterTitle(true);
+    frame->GetYaxis()->SetTitleOffset(1.4);
 
-    delete h2D_PtMuPl_PtMumi;
+    //Draw only the axis frame.
+    frame->Draw("AXIS");
+
+    //Format graph.
+    graph->SetMarkerStyle(20);
+    graph->SetMarkerSize(0.9);
+    graph->SetMarkerColorAlpha(kRed+1, 1.);
+    graph->SetLineColorAlpha(kRed-7, 0.8);
+    graph->SetLineWidth(2);
+
+    //Draw
+    graph->Draw("P SAME");
+
+    //Grey line at y=0
+    TLine* line = new TLine(0.5, 0.0, 0.5+nPoints, 0.0);
+    line->SetLineColor(kGray);
+    line->SetLineStyle(7);
+    line->SetLineWidth(2);
+    line->Draw();
+
+    drawLatexText("#bf{CMS}", 0.14, 0.93, 0.04);
+    drawLatexText("#it{Work in Progress}", 0.21, 0.93, 0.03);
+    drawLatexText(dataSamplesUsed.c_str(), 0.55, 0.93, 0.03);
+    
+    //Plot specifications
+    drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.2, 0.8, 0.03);
+    drawLatexText("60 < M_{#mu#mu} < 120 GeV", 0.2, 0.75, 0.03);
+
+    c->Update();
+    std::string outputName = "MeanDiff_vs_Centrality_FromTree" + plot_extension;
+    c->SaveAs(outputName.c_str());
+
+    delete frame;
+    delete line;
+    delete graph;
+    delete c;
 }
 
 
-std::pair<double, double> Get_ppRefValues(TFile* inputFile){
+void FillPtHistograms(const Dataset& dataset, double lowCent, double highCent, TH1D* h_MuPl, TH1D* h_MuMi) {
 
-    //Get directory
-    TDirectory *ppRef_dir = inputFile->GetDirectory("ppRef2024_Data");
+    // Load root file.
+    std::string fullPath = dataset.basePath + dataset.filePattern;
 
-    //Original histograms
-    TH1D* og_plus = dynamic_cast<TH1D*>(ppRef_dir->Get("h1D_ptMuPlus"));
-    TH1D* og_minus = dynamic_cast<TH1D*>(ppRef_dir->Get("h1D_ptMuMinus"));
+    TChain *chain = new TChain(dataset.treeName.c_str());
+    chain->Add(fullPath.c_str());
 
-    //Get clone to manipulate
-    TH1D* h_MuPl = dynamic_cast<TH1D*>(og_plus->Clone("h_MuPl"));
-    TH1D* h_MuMi = dynamic_cast<TH1D*>(og_minus->Clone("h_MuMi"));
-    h_MuPl->SetDirectory(nullptr);
-    h_MuMi->SetDirectory(nullptr);
+    std::cout << "> Number of files = " << chain->GetListOfFiles()->GetEntries() << "\n" << std::endl;
+    std::cout << "> Opening files " << fullPath << "\n" << std::endl;
+    std::cout << "> Running function " << __func__ << " on " << dataset.name << "\n" << std::endl;
+    
+    //Total number of events on Tree.
+    Long64_t nEvents = chain->GetEntries();
 
-    //Statistics calculation
-    //Get mean of MuPl
+    const int MAX_DIMUON = 1000;
+    const int MAX_MUON   = 1000;
+
+    //For now, writing ONLY branches that are relevant to the observable we want to measure.
+
+    //Event-level variables
+    Int_t Centrality;
+    Float_t  zVtx;
+
+    chain->SetBranchAddress("zVtx", &zVtx);
+
+    if(dataset.hasCentrality) {//PbPb2023, PbPb2024.
+        chain->SetBranchAddress("Centrality", &Centrality);
+    }
+
+    //Dimuon-level variables
+    Short_t Reco_Dimuon_size;
+
+    Short_t Reco_Dimuon_sign[MAX_DIMUON];
+    Short_t Reco_Dimuon_muonPlusIndex[MAX_DIMUON];
+    Short_t Reco_Dimuon_muonMinusIndex[MAX_DIMUON];
+
+    ULong64_t Reco_Dimuon_trig[MAX_DIMUON];
+    Float_t Reco_Dimuon_vtxProb[MAX_DIMUON];
+
+    std::vector<float>* Reco_Dimuon_pt = nullptr;
+    std::vector<float>* Reco_Dimuon_eta = nullptr;
+    std::vector<float>* Reco_Dimuon_rapidity = nullptr;
+    std::vector<float>* Reco_Dimuon_phi = nullptr;
+    std::vector<float>* Reco_Dimuon_invMass = nullptr;
+
+    std::vector<float>* Reco_Dimuon_muonPtDiff = nullptr;
+    std::vector<float>* Reco_Dimuon_muonPtRelDiff = nullptr;
+
+    chain->SetBranchAddress("Reco_Dimuon_size", &Reco_Dimuon_size);
+
+    chain->SetBranchAddress("Reco_Dimuon_sign", Reco_Dimuon_sign);
+    chain->SetBranchAddress("Reco_Dimuon_muonPlusIndex", Reco_Dimuon_muonPlusIndex);
+    chain->SetBranchAddress("Reco_Dimuon_muonMinusIndex", Reco_Dimuon_muonMinusIndex);
+
+    chain->SetBranchAddress("Reco_Dimuon_trig", Reco_Dimuon_trig);
+    chain->SetBranchAddress("Reco_Dimuon_vtxProb", Reco_Dimuon_vtxProb);
+
+    chain->SetBranchAddress("Reco_Dimuon_pt", &Reco_Dimuon_pt);
+    chain->SetBranchAddress("Reco_Dimuon_eta", &Reco_Dimuon_eta);
+    chain->SetBranchAddress("Reco_Dimuon_rapidity", &Reco_Dimuon_rapidity);
+    chain->SetBranchAddress("Reco_Dimuon_phi", &Reco_Dimuon_phi);
+    chain->SetBranchAddress("Reco_Dimuon_invMass", &Reco_Dimuon_invMass);
+
+    chain->SetBranchAddress("Reco_Dimuon_muonPtDiff", &Reco_Dimuon_muonPtDiff);
+    chain->SetBranchAddress("Reco_Dimuon_muonPtRelDiff", &Reco_Dimuon_muonPtRelDiff);
+
+    //Muon-level variables
+    Short_t Reco_Muon_size;
+
+    std::vector<float>* Reco_Muon_pt = nullptr;
+    //std::vector<float>* Reco_Muon_ptErrTrk = nullptr; //I think we need to study this branch further.
+    std::vector<float>* Reco_Muon_eta = nullptr;
+    std::vector<float>* Reco_Muon_phi = nullptr;
+    std::vector<float>* Reco_Muon_mass = nullptr;
+
+    ULong64_t Reco_Muon_trig[MAX_MUON];
+    Bool_t Reco_Muon_isTightCutBased[MAX_MUON];
+    
+    chain->SetBranchAddress("Reco_Muon_size", &Reco_Muon_size);
+
+    chain->SetBranchAddress("Reco_Muon_pt", &Reco_Muon_pt);
+    //chain->SetBranchAddress("Reco_Muon_ptErrTrk", &Reco_Muon_ptErrTrk);
+    chain->SetBranchAddress("Reco_Muon_eta", &Reco_Muon_eta);
+    chain->SetBranchAddress("Reco_Muon_phi", &Reco_Muon_phi);
+    chain->SetBranchAddress("Reco_Muon_mass", &Reco_Muon_mass);
+
+    chain->SetBranchAddress("Reco_Muon_trig", Reco_Muon_trig);
+    chain->SetBranchAddress("Reco_Muon_isTightCutBased", Reco_Muon_isTightCutBased);
+
+
+    //dN/dpT histograms for MuPl and MuMi.
+    //TH1D* h_MuPl = new TH1D("h_MuPl", "Muon Plus pT; pT [GeV]; Entries", 100, 0., 100.);
+    //TH1D* h_MuMi = new TH1D("h_MuMi", "Muon Minus pT; pT [GeV]; Entries", 100, 0., 100.);
+
+
+    //Event-level cut values.
+    double maxZvtx = MAX_ZVTX;
+
+    //Z-level cut values.
+    double minZ_Mass = MINZ_MASS; 
+    double maxZ_Mass = MAXZ_MASS; 
+    double RapidityCutValue = RAPIDITYCUTVALUE;
+
+    //Muon-level cut values.
+    float EtaCutValue = ETACUTVALUE;
+    double ptCutValue = PTCUTVALUE;
+    bool MuPlIsTight;
+    bool MuMiIsTight;
+
+    //Observables
+    TLorentzVector Z;
+    double ptplus, ptminus;
+    double etaplus, etaminus;
+
+    //Centrality interval passed as argument to the function.
+    float minCentrality = 2.*lowCent;
+    float maxCentrality = 2.*highCent;
+    //
+
+    for(Long64_t i = 0; i < nEvents; ++i){//Loop through all EVENTS in the CHAIN.
+
+        chain->GetEntry(i); //Get event i.
+
+        //Good event selection
+        bool goodVertex = (std::abs(zVtx) < maxZvtx);
+        bool goodCent = true;
+
+        if (dataset.hasCentrality) {
+            goodCent = (Centrality >= minCentrality && Centrality < maxCentrality);
+        }
+
+        if (!goodVertex) continue;
+        if (!goodCent) continue;
+
+        for(Short_t j = 0; j < Reco_Dimuon_size; ++j){ //Loop through all reco dimuon candidates of event i.
+            
+            //Good Z selection
+            bool goodMass = (Reco_Dimuon_invMass->at(j) > minZ_Mass && Reco_Dimuon_invMass->at(j) < maxZ_Mass);
+            bool goodRapidity = (std::abs(Reco_Dimuon_rapidity->at(j)) < RapidityCutValue);
+            bool goodCharge = (Reco_Dimuon_sign[j] == 0);
+            bool goodVtxProb = (Reco_Dimuon_vtxProb[j] > 0.001); //Vertex probability cut of .1% for dimuon candidates.
+            bool isTriggerMatched = true;
+
+                if (dataset.applyTrigger) {
+                    //**At least** one of the daughter muons must be matched to the trigger.
+                    isTriggerMatched = (Reco_Dimuon_trig[j] & dataset.triggerBit);//Corresponding triggerBit to that dataset.
+                }
+
+            if (!goodMass) continue;
+            if (!goodRapidity) continue;
+            if (!goodCharge) continue;
+            if (!goodVtxProb) continue;
+            if (!isTriggerMatched) continue;
+
+            //Good muon selection
+            Short_t muonPlusIndex = Reco_Dimuon_muonPlusIndex[j]; //Index of antimuon in the reco muon arrays.
+            Short_t muonMinusIndex = Reco_Dimuon_muonMinusIndex[j]; //Index of corresponding muon in the reco muon arrays.
+
+            ptplus = Reco_Muon_pt->at(muonPlusIndex); //pT of antimuon.
+            ptminus = Reco_Muon_pt->at(muonMinusIndex); //pT of corresponding muon.
+            etaplus = Reco_Muon_eta->at(muonPlusIndex); //Pseudorapidity of antimuon.
+            etaminus = Reco_Muon_eta->at(muonMinusIndex); //Pseudorapidity of corresponding muon.
+            MuPlIsTight = Reco_Muon_isTightCutBased[muonPlusIndex];
+            MuMiIsTight = Reco_Muon_isTightCutBased[muonMinusIndex];
+            
+            bool goodMuPl = (ptplus > ptCutValue)
+                            && (std::abs(etaplus) < EtaCutValue)
+                            && (MuPlIsTight);
+
+            bool goodMuMi = (ptminus > ptCutValue)
+                            && (std::abs(etaminus) < EtaCutValue)
+                            && (MuMiIsTight);
+
+            if (!goodMuPl || !goodMuMi) continue;
+            //End of good selection for dimuon candidate j of event i.
+            
+            //Fill each histogram with respective muon pT.
+            h_MuPl->Fill(ptplus);
+            h_MuMi->Fill(ptminus);
+
+        }//End of dimuon candidate loop.
+
+
+        //Track progress of event loop.
+        Long64_t progressStep = std::max<Long64_t>(1, nEvents / 100);
+        if (i % progressStep == 0){
+
+            int percent = static_cast<int>(100.0 * i / nEvents+0.5);
+
+            std::cout << "\r"
+                      << percent
+                      << "% complete..."
+                      << std::flush;
+        }
+
+    }//Exiting event-by-event loop.
+
+    delete chain;
+}
+
+
+void GetMeanAndPeakDifference(const Dataset& dataset, TH1D* h_MuPl, TH1D* h_MuMi){
+
+    //pT(mu+) statistics
+    //Mean and error
     double MuPl_mean = h_MuPl->GetMean();
-    double MuPl_mean_error = h_MuPl->GetMeanError();
+    double MuPl_meanError = h_MuPl->GetMeanError();
 
-    //Get mean of MuMi
-    double MuMi_mean = h_MuMi->GetMean();
-    double MuMi_mean_error = h_MuMi->GetMeanError();
+    //Variance and RMS
+    double MuPl_variance = h_MuPl->GetStdDev();
+    double MuPl_RMS = h_MuPl->GetRMS();
 
-    //What we want is their difference.
-    double MeanDiff = MuPl_mean - MuMi_mean;
-    double MeanDiffError = std::sqrt( std::abs(MuPl_mean_error * MuPl_mean_error - MuMi_mean_error * MuMi_mean_error));//From Lara's reference. Completely correlated.
-
-    //Get also peak value
+    //Peak and "error" (bin width)
     double MuPl_peak = h_MuPl->GetBinCenter(h_MuPl->GetMaximumBin());
+    double MuPl_peakError = h_MuPl->GetBinWidth(h_MuPl->GetMaximumBin());
+
+    //pT(mu-) statistics
+    //Mean and error
+    double MuMi_mean = h_MuMi->GetMean();
+    double MuMi_meanError = h_MuMi->GetMeanError();
+
+    //Variance and RMS
+    double MuMi_variance = h_MuMi->GetStdDev();
+    double MuMi_RMS = h_MuMi->GetRMS();
+
+    //Peak and "error" (bin width)
     double MuMi_peak = h_MuMi->GetBinCenter(h_MuMi->GetMaximumBin());
-    double MuPl_peak_error = h_MuPl->GetBinWidth(h_MuPl->GetMaximumBin()); //For now error is taken to be the width of the bin with maximum content.
-    double MuMi_peak_error = h_MuMi->GetBinWidth(h_MuMi->GetMaximumBin());
-    double PeakDiff = MuPl_peak - MuMi_peak;
-    double PeakDiffError = std::sqrt(MuPl_peak_error * MuPl_peak_error + MuMi_peak_error * MuMi_peak_error);//Completely correlated.
+    double MuMi_peakError = h_MuMi->GetBinWidth(h_MuMi->GetMaximumBin());
+    
+    //Calculate mean difference and error
+    double meanDifference = MuPl_mean - MuMi_mean;
+    double meanDifferenceError = std::sqrt(std::abs(MuPl_meanError * MuPl_meanError - MuMi_meanError * MuMi_meanError));
 
-    //We may want to return their peak values also. Review that later.
-    delete h_MuPl;
-    delete h_MuMi;
+    //**Nothing** with variance and RMS for now.
 
-    //Saving the peak difference and error for later use.
-    PeakDiffAndError_ppRef.push_back(std::make_pair(PeakDiff, PeakDiffError));
+    //Peak difference and error
+    double peakDifference = MuPl_peak - MuMi_peak;
+    double peakDifferenceError = std::sqrt(std::abs(MuPl_peakError * MuPl_peakError - MuMi_peakError * MuMi_peakError));
 
-    return std::make_pair(MeanDiff, MeanDiffError);
+
+    //Save results in respective vectors.
+    if(dataset.hasCentrality) {//PbPb2023 and PbPb2024 datasets
+        PbPbMean.push_back(std::make_pair(meanDifference, meanDifferenceError));
+        PbPbPeak.push_back(std::make_pair(peakDifference, peakDifferenceError));
+    }
+
+    else if(dataset.system == CollisionSystem::ppRef2024){//ppRef.
+        ppRefMean.push_back(std::make_pair(meanDifference, meanDifferenceError));
+        ppRefPeak.push_back(std::make_pair(peakDifference, peakDifferenceError));
+    }
+
 }
