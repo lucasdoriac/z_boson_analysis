@@ -1,12 +1,7 @@
 # ROOT output files
 *.root
 
-# Plots and figures
-*.png
-*.pdf
-
 # Temporary / generated files
-
 *.log
 *.out
 *.swp
@@ -19,7 +14,7 @@
 *.pcm
 *.ACLiC_dict_rdict.pcm
 
-# Datasets
+# Private datasets
 Data/
 MC/
 
@@ -28,3 +23,5 @@ private/
 private_plots/
 *.txt
 *.dat
+*.png
+*.pdf
