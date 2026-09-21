@@ -48,22 +48,22 @@ double fitMax = 65.; //Maximum x-value for the fit range of the asymmetry histog
 
 
 //Set of centrality bins for PbPb2024 data. We can decide to change the centrality bins later if we want to.
-/*std::vector<std::pair<double, double>> CentralityBinsSet = {
+std::vector<std::pair<double, double>> CentralityBinsSet = {
     {0., 10.},
     {10., 20.},
     {20., 30.},
     {30., 100.},
     {0., 100.}
-};*/
+};
 
 //Second proposed set of centrality bins for PbPb2024 data.
-std::vector<std::pair<double, double>> CentralityBinsSet = {
+/*std::vector<std::pair<double, double>> CentralityBinsSet = {
     {0., 10.},
     {10., 30.},
     {30., 50.},
     {50., 100.},
     {0., 100.}
-};
+};*/
 
 //Vector of histograms
 std::vector<TH1D*> AsymmetryHists;
