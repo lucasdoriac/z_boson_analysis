@@ -37,7 +37,7 @@ std::string JointPbPb = "PbPb2023+2024"; //"PbPb2023+2024", "PbPb2023", "PbPb202
 std::string dataSamplesUsed = "PbPb 2023+2024, ppRef 2024 (5.36 TeV)";
 double delta = 1e-6; //Small value to avoid binning issues when projecting histograms.
 
-double rho = 0.9; //Correlation coefficient for error propagation in asymmetry calculation.
+double rho = 1.0; //Correlation coefficient for error propagation in asymmetry calculation.
 double fitMin = 40.; //Minimum x-value for the fit range of the asymmetry histogram.
 double fitMax = 65.; //Maximum x-value for the fit range of the asymmetry histogram.
 
