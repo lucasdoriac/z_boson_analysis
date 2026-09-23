@@ -1,6 +1,5 @@
 /*
-Apply set of good selections and create histograms for Z boson analysis using PbPb Run 3 and pp2024 collision systems.
-Combining only 2023+2024 for now. Lines 653-654.
+Calculates fraction of muons above 200 GeV.
 */
 
 //---Libraries
@@ -174,7 +173,7 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile);
 void CombinePbPbYears(TFile* outputFile);
 
 //---Main
-void ApplyGoodSelection(){
+void MuonsAbove200GeV(){
 
     TFile *outputFile = new TFile("mySelectedData.root", "RECREATE");
 
@@ -186,7 +185,6 @@ void ApplyGoodSelection(){
 
     //Combine all years into a single directory.
     //Currently adding only 2023+2024 for now. Lines 653-654.
-    CombinePbPbYears(outputFile);
 
     outputFile->Close();
     delete outputFile;
@@ -223,13 +221,11 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
     //Event-level variables
     Int_t Centrality;
     Float_t  zVtx;
-    Float_t SumET_HF;
 
     chain->SetBranchAddress("zVtx", &zVtx);
     
     if(dataset.hasCentrality) {
         chain->SetBranchAddress("Centrality", &Centrality);
-        chain->SetBranchAddress("SumET_HF", &SumET_HF);
     }
 
     //Dimuon-level variables
@@ -347,10 +343,6 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
         "Primary vertex z position for selected Z candidates;z_{vtx} [cm];N of dimuons",
         60, -15., 15.);
 
-    TH1D* h1D_hiHF = new TH1D("h1D_hiHF",
-        "hiHF for selected Z candidates;hiHF;N of dimuons",
-        100, 0., 8000.);
-
     //Azimuthal separation between the two daughter muons.
     TH1D* h1D_deltaPhiMuMu = new TH1D("h1D_deltaPhiMuMu",
         "Azimuthal separation of selected dimuons;#Delta#phi(#mu^{+},#mu^{-}) [rad];N of dimuons",
@@ -421,6 +413,10 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
     bool MuPlIsTight;
     bool MuMiIsTight;
 
+    int nDimuonsSelected = 0; //Counter for selected dimuons.
+    int nMuonsSelected = 0;
+    int nMuonsAbove200GeV = 0; //Counter for dimuons with both muons above 200 GeV.
+
     for(Long64_t i = 0; i < nEvents; ++i){//Loop through all EVENTS in the CHAIN.
 
         chain->GetEntry(i); //Get event i.
@@ -472,57 +468,10 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
             if (!goodMuPl || !goodMuMi) continue;
             //End of good selection for dimuon candidate j of event i.
 
-            //Simple histograms
-            h1D_invMass->Fill(Reco_Dimuon_invMass->at(j));
-            h1D_zPt->Fill(Reco_Dimuon_pt->at(j));
-            h1D_zRapidity->Fill(Reco_Dimuon_rapidity->at(j));
-
-            h1D_ptMuPlus->Fill(ptplus);
-            h1D_ptMuMinus->Fill(ptminus);
-            h1D_etaMuPlus->Fill(etaplus);
-            h1D_etaMuMinus->Fill(etaminus);
-
-            phiplus = Reco_Muon_phi->at(muonPlusIndex);
-            phiminus = Reco_Muon_phi->at(muonMinusIndex);
-            h1D_phiMuPlus->Fill(phiplus);
-            h1D_phiMuMinus->Fill(phiminus);
-
-            h1D_zVtx->Fill(zVtx);
-
-            //Azimuthal separation between the two daughter muons.
-            double deltaPhiMuMu = std::abs( TVector2::Phi_mpi_pi(phiplus - phiminus) );
-            h1D_deltaPhiMuMu->Fill(deltaPhiMuMu);
-
-            //Angular separation between the two daughter muons. Distance between two points in the eta-phi space.
-            double deltaEtaMuMu = etaplus - etaminus;
-            double deltaRMuMu = std::sqrt(deltaEtaMuMu*deltaEtaMuMu + deltaPhiMuMu*deltaPhiMuMu);
-            h1D_deltaRMuMu->Fill(deltaRMuMu);
-
-            //Acoplanarity between the two daughter muons.
-            double acoplanarity = 1.0 - ( deltaPhiMuMu / TMath::Pi() );
-            h1D_acoplanarity->Fill(acoplanarity);
-
-            //Relative pT difference between the two daughter muons.
-            h1D_muonPtRelDiff->Fill(Reco_Dimuon_muonPtRelDiff->at(j));
-
-            //Absolute pT difference between the two daughter muons.
-            h1D_muonPtDiff->Fill(Reco_Dimuon_muonPtDiff->at(j));
-
-            if (dataset.hasCentrality) {
-                h3D_PtMuPl_PtMuMi_Cent->Fill(ptplus, ptminus, Centrality/2.);
-                h1D_centrality->Fill(Centrality/2.);
-                h1D_hiHF->Fill(SumET_HF);
-
-                //Latest correlation histograms
-                h2D_muonPtRelDiff_Cent->Fill(Centrality/2., Reco_Dimuon_muonPtRelDiff->at(j));
-                h2D_zPt_Cent->Fill(Centrality/2., Reco_Dimuon_pt->at(j));
+            nDimuonsSelected++; //Increment counter for selected dimuons.
+            if(ptplus > 200. || ptminus > 200.) {
+                nMuonsAbove200GeV++; //Increment counter for dimuons with both muons above 200 GeV.
             }
-
-            //Latest correlation histograms
-            h2D_muonPtRelDiff_zPt->Fill(Reco_Dimuon_pt->at(j), Reco_Dimuon_muonPtRelDiff->at(j));
-            h2D_muonPtRelDiff_zRapidity->Fill(Reco_Dimuon_rapidity->at(j), Reco_Dimuon_muonPtRelDiff->at(j));
-            h2D_zPt_zRapidity->Fill(Reco_Dimuon_pt->at(j), Reco_Dimuon_rapidity->at(j));
-            h2D_PtMuPl_PtMuMi->Fill(ptplus, ptminus);
 
         }//End of dimuon candidate loop.
 
@@ -541,123 +490,11 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
 
     }//Exiting event-by-event loop.
 
-
     std::cout << "\n\n> Selections applied on " << dataset.name << "\n" << std::endl;
     std::cout << "> Writing histograms to output file..." << "\n" << std::endl;
     std::cout << "> Number of Z bosons selected = " << h1D_invMass->GetEntries() << std::endl;
 
-
-    //Write everything on the current directory.
-    if(dataset.hasCentrality){//Only write for PbPb datasets.
-        h3D_PtMuPl_PtMuMi_Cent->Write(); 
-        h1D_centrality->Write();
-        h1D_hiHF->Write();
-
-        //Latest correlation histograms
-        h2D_muonPtRelDiff_Cent->Write();
-        h2D_zPt_Cent->Write();
-    }
-    h1D_invMass->Write();
-    h1D_zPt->Write();
-    h1D_zRapidity->Write();
-    h1D_ptMuPlus->Write();
-    h1D_ptMuMinus->Write();
-    h1D_etaMuPlus->Write();
-    h1D_etaMuMinus->Write();
-    h1D_phiMuPlus->Write();
-    h1D_phiMuMinus->Write();
-    h1D_zVtx->Write();
-    h1D_deltaPhiMuMu->Write();
-    h1D_deltaRMuMu->Write();
-    h1D_acoplanarity->Write();
-    h1D_muonPtRelDiff->Write();
-    h1D_muonPtDiff->Write();
-    
-    //Latest correlation histograms
-    h2D_muonPtRelDiff_zPt->Write();
-    h2D_muonPtRelDiff_zRapidity->Write();
-    h2D_zPt_zRapidity->Write();
-    h2D_PtMuPl_PtMuMi->Write();
-    
-    //Leave directory.
-    outputFile->cd();
-}
-
-void CombinePbPbYears(TFile* outputFile){
-
-    TDirectory* dir2023 = outputFile->GetDirectory("PbPb2023_Data");
-    TDirectory* dir2024 = outputFile->GetDirectory("PbPb2024_Data");
-    TDirectory* dir2025 = outputFile->GetDirectory("PbPb2025_Data");
-    TDirectory* dir2026 = outputFile->GetDirectory("PbPb2026_Data");
-    if(!dir2023 || !dir2024 || !dir2025 || !dir2026){
-        std::cout << "Error: Some PbPb directory was not found." << std::endl;
-        return;
-    }
-
-    //Vector with hist names to be combined.
-    std::vector<std::string> histNames = {
-
-        "h3D_PtMuPl_PtMuMi_Cent",
-        "h1D_centrality",
-
-        "h1D_invMass",
-        "h1D_zPt",
-        "h1D_zRapidity",
-
-        "h1D_ptMuPlus",
-        "h1D_ptMuMinus",
-
-        "h1D_etaMuPlus",
-        "h1D_etaMuMinus",
-
-        "h1D_phiMuPlus",
-        "h1D_phiMuMinus",
-
-        "h1D_zVtx",
-
-        "h1D_deltaPhiMuMu",
-        "h1D_deltaRMuMu",
-        "h1D_acoplanarity",
-
-        "h1D_muonPtRelDiff",
-        "h1D_muonPtDiff",
-
-        "h2D_muonPtRelDiff_Cent",
-        "h2D_zPt_Cent",
-
-        "h2D_muonPtRelDiff_zPt",
-        "h2D_muonPtRelDiff_zRapidity",
-        "h2D_zPt_zRapidity",
-        "h2D_PtMuPl_PtMuMi"
-    };
-
-    
-    //Create a new directory for the combined histograms.
-    TDirectory* combinedDir = outputFile->mkdir("PbPb_Run3Data");
-
-    for(const auto& histName : histNames){
-
-        TH1* h2023 = dynamic_cast<TH1*>(dir2023->Get(histName.c_str()));
-        TH1* h2024 = dynamic_cast<TH1*>(dir2024->Get(histName.c_str()));
-        TH1* h2025 = dynamic_cast<TH1*>(dir2025->Get(histName.c_str()));
-        TH1* h2026 = dynamic_cast<TH1*>(dir2026->Get(histName.c_str()));
-        if(!h2023 || !h2024 || !h2025 || !h2026){ 
-            std::cerr<< "Warning: could not get TH1 histogram from single year. " << histName << std::endl;
-            continue;
-        }
-
-        combinedDir->cd();
-        //First clone the histogram from 2023, then add the others to it.
-        TH1* hCombined = dynamic_cast<TH1*>(h2023->Clone(histName.c_str()));
-
-        hCombined->SetDirectory(combinedDir);
-
-        hCombined->Add(h2024);
-        //hCombined->Add(h2025);
-        //hCombined->Add(h2026);
-        hCombined->Write();
-    }
-
-    std::cout << "> Combined PbPb histograms written to output file." << std::endl;
-    outputFile->cd();
+    std::cout << "> Number of dimuons selected = " << nDimuonsSelected << std::endl;
+    std::cout << "> Number of muons selected = " << 2.*nDimuonsSelected << std::endl;
+    std::cout << "> Number of muons above 200 GeV = " << nMuonsAbove200GeV << std::endl;
 }

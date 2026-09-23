@@ -142,8 +142,8 @@ void MakeTGraph(std::vector<std::array<double,3>> fromSet1,
     leg->Draw();
 
     drawLatexText("#bf{CMS}", 0.12, 0.93, 0.042);
-    drawLatexText("#it{Work in Progress}", 0.2, 0.93, 0.033);
-    drawLatexText("PbPb 2024, ppRef 2024 (5.36 TeV)", 0.6, 0.93, 0.033);
+    drawLatexText("#it{Internal}", 0.2, 0.93, 0.033);
+    drawLatexText(dataSamplesUsed.c_str(), 0.6, 0.93, 0.033);
     
     //Plot specifications
     drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.22, 0.3, 0.03);
@@ -164,7 +164,7 @@ void MakeTGraph(std::vector<std::array<double,3>> fromSet1,
 std::vector<std::array<double,3>> GetEventsOnCBin(TFile* inputFile, std::vector<std::pair<double, double>> cBinsSet){
 
     //Get directory
-    TDirectory *dir = (TDirectory*)inputFile->Get("PbPb2023_2024_Data");
+    TDirectory *dir = (TDirectory*)inputFile->Get(whichDataset.c_str());
 
     //Get n of dimuons vs centrality hist
     TH1D *h1D_centrality = (TH1D*)dir->Get("h1D_centrality");

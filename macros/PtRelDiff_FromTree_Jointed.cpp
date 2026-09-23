@@ -2,7 +2,6 @@
 Makes PtRelDiff (relative to ppRef) vs centrality bin without using histograms.
 Calculates directly from the Tree.
 Calculates mean and skewness of the PtRelDiff distribution for each centrality bin.
-Analyzes both PbPb2023 and PbPb2024 datasets.
 */
 
 //---Libraries
@@ -32,10 +31,12 @@ Analyzes both PbPb2023 and PbPb2024 datasets.
 
 
 //---Macro settings
-std::string plot_extension = ".pdf"; // ".png" for regular development and ".pdf" for final quality plots
+std::string plot_extension = ".png"; // ".png" for regular studies and ".pdf" for final quality plots
 std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
 //std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
-std::string dataSamplesUsed = "PbPb 2023+2024, ppRef 2024 (5.36 TeV)";
+std::string whichDataset = "PbPb2023_2024_Data"; // "PbPb2023_2024_Data", "PbPb2023_Data", "PbPb2024_Data". 
+std::string JointPbPb = "PbPb2023+2024"; //"PbPb2023+2024", "PbPb2023", "PbPb2024".
+std::string dataSamplesUsed = "PbPb 2023-2026, ppRef 2024 (5.36 TeV)";
 
 
 //Good selection threshold values
@@ -48,8 +49,10 @@ const double RAPIDITYCUTVALUE = 2.4;
 const float ETACUTVALUE = 2.4;
 const double PTCUTVALUE = 20.;
 
+
 // ##############################################################################
 // ##############################################################################
+
 
 //---Enumerates
 enum class SampleType {
@@ -58,9 +61,11 @@ enum class SampleType {
 };
 
 enum class CollisionSystem {
+    ppRef2024,
     PbPb2023,
     PbPb2024,
-    ppRef2024
+    PbPb2025,
+    PbPb2026
 };
 
 //---Structs
@@ -78,6 +83,19 @@ struct Dataset {
 };
 
 Dataset datasets[] = {
+    
+    {
+        "ppRef2024_Data",
+        SampleType::Data,
+        CollisionSystem::ppRef2024,
+        "hionia/DimuonTree",
+        "HighPtMuons_HLTL2SingleMu_ppRef2024.root",
+        BasePath + "Data/ppRef2024/",
+        false,
+        false,
+        0ULL
+    },
+    
     {
         "PbPb2023_Data",
         SampleType::Data,
@@ -103,15 +121,27 @@ Dataset datasets[] = {
     },
 
     {
-        "ppRef2024_Data",
+        "PbPb2025_Data",
         SampleType::Data,
-        CollisionSystem::ppRef2024,
+        CollisionSystem::PbPb2025,
         "hionia/DimuonTree",
-        "HighPtMuons_HLTL2SingleMu_ppRef2024.root",
-        BasePath + "Data/ppRef2024/",
-        false,
-        false,
-        0ULL
+        "HighPtMuon_PbPb2025Data.root",
+        BasePath + "Data/PbPb2025/",
+        true,
+        true,
+        1ULL << 7 //'HLT_HIL2SingleMu12_v'
+    },
+
+    {
+        "PbPb2026_Data",
+        SampleType::Data,
+        CollisionSystem::PbPb2026,
+        "hionia/DimuonTree",
+        "HighPtMuon_PbPb2026Data.root",
+        BasePath + "Data/PbPb2026/",
+        true,
+        true,
+        1ULL << 7 //'HLT_HIL2SingleMu12_v'
     },
 
     {
@@ -173,6 +203,7 @@ std::vector<PtRelDiffResult> ppRefResults; //dummy string, n, mean, meanError, v
 std::vector<PtRelDiffResult> PbPbResults; //centralityBinStr, n, mean, meanError, variance, skewness, skewnessError.
 std::vector<PtRelDiffResult> FinalResults; //centralityBinStr, n, mean, meanError, variance, skewness, skewnessError.
 
+
 //---Function declarations
 void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double highCent, std::vector<double>& ptRelDiffValues);
 void FillResultStructFromVector(bool hasCentrality, double lowCent, double highCent, const std::vector<double>& ptRelDiffValues);
@@ -191,7 +222,7 @@ void PtRelDiff_FromTree_Jointed(){
 
     //Calculate PtRelDiff for ppRef2024 dataset.
     std::vector<double> ptRelDiffValues_ppRef;
-    CalculatePtRelativeDiff(datasets[2], 0., 100., ptRelDiffValues_ppRef); //ppRef2024 dataset.
+    CalculatePtRelativeDiff(datasets[0], 0., 100., ptRelDiffValues_ppRef); //ppRef2024 dataset.
     FillResultStructFromVector(false, 0., 100., ptRelDiffValues_ppRef); //ppRef2024 dataset.
 
     //Now for PbPb2024 dataset. Loop over centrality bins. 
@@ -201,8 +232,10 @@ void PtRelDiff_FromTree_Jointed(){
 
         //Vector to calculate statistics from.
         std::vector<double> ptRelDiffValues;
-        CalculatePtRelativeDiff(datasets[0], centralityBin.first, centralityBin.second, ptRelDiffValues); //PbPb2023 dataset
-        CalculatePtRelativeDiff(datasets[1], centralityBin.first, centralityBin.second, ptRelDiffValues); //PbPb2024 dataset
+        CalculatePtRelativeDiff(datasets[1], centralityBin.first, centralityBin.second, ptRelDiffValues); //PbPb2023 dataset
+        CalculatePtRelativeDiff(datasets[2], centralityBin.first, centralityBin.second, ptRelDiffValues); //PbPb2024 dataset
+        CalculatePtRelativeDiff(datasets[3], centralityBin.first, centralityBin.second, ptRelDiffValues); //PbPb2025 dataset
+        CalculatePtRelativeDiff(datasets[4], centralityBin.first, centralityBin.second, ptRelDiffValues); //PbPb2026 dataset
 
         //Fill a struct that contains statistics for each centrality.
         FillResultStructFromVector(true, centralityBin.first, centralityBin.second, ptRelDiffValues);
