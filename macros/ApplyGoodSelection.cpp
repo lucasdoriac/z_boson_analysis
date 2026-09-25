@@ -1,6 +1,16 @@
 /*
-Apply selections and create histograms for Z boson analysis in PbPb and pp collisions.
-PbPb 2023, PbPb 2024, and ppRef 2024.
+Apply selections and create histograms for dimuon kinematic analysis (Z to mumu channel) in PbPb and pp collisions.
+Also makes plots of raw vs selected data variables for selected histograms.
+Makes also Cut Flow Table.
+
+--- Datasets used:
+PbPb2023
+PbPb 2024
+PbPb 2025
+PbPb 2026
+ppRef 2024.
+
+Trigger: HLT_HIL2SingleMu.
 */
 
 //---Libraries
@@ -29,8 +39,8 @@ PbPb 2023, PbPb 2024, and ppRef 2024.
 
 
 //Location of datasets
-//std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
-std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
+std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
+//std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
 
 
 //Good Selection values
