@@ -15,6 +15,7 @@ Trigger: HLT_HIL2SingleMu.
 */
 
 //---Libraries
+#include <TROOT.h>
 #include <TFile.h>
 #include <TDirectory.h>
 #include <TTree.h>
@@ -323,7 +324,7 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
 
         h1D_hiHF = new TH1D("h1D_hiHF",
         "hiHF for selected Z candidates;hiHF;N of dimuons",
-        200, 0., 8000.);
+        100, 0., 8000.);
     }
     
     TH1D* h1D_invMass = new TH1D("h1D_invMass",
@@ -428,6 +429,15 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
     "p_{T} of muon+ vs p_{T} of muon-;p_{T}^{#mu^{+}} [GeV/c];p_{T}^{#mu^{-}} [GeV/c]",
         200, 0., 200., 200, 0., 200.);
 
+
+    //Events vs centrality just as a test for Sept.30 SPRACE meeting:
+    TH1D* h1D_eventsVsCentrality = nullptr;
+    if(dataset.hasCentrality){
+        h1D_eventsVsCentrality = new TH1D("h1D_eventsVsCentrality",
+        "Events vs Centrality;Centrality [%];N of events",
+            200, 0., 100.);
+    }
+
     
     //Muon-level selection variables
     double ptplus, ptminus;
@@ -436,11 +446,12 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
     bool MuPlIsTight;
     bool MuMiIsTight;
 
-    int nMultiDimuonEvents = 0; //Tracker of n of events with more than one dimuon candidate passing the selection.
+    Long64_t nMultiDimuonEvents = 0; //Tracker of n of events with more than one dimuon candidate passing the selection.
 
     for(Long64_t i = 0; i < nEvents; ++i){//Loop through all EVENTS in the CHAIN.
 
         chain->GetEntry(i); //Get event i.
+        int nSelectedInEvent = 0; //Tracker of n of dimuon candidates passing the selection in a single event.
 
         //Good event selection. No centrality selection at this point.
         bool goodVertex = (std::abs(zVtx) < maxZvtx);
@@ -492,9 +503,8 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
             //Sept. 24, 2026: Temporary.
             //Keep track of the number of dimuon candidates passing the selection in this event.
             //We will have to deal with the case of more than one dimuon candidate passing the selection in a single event in the future.
-            if(j >= 1) {
-                nMultiDimuonEvents++;
-            }
+            nSelectedInEvent++;
+
 
             //Simple histograms
             h1D_invMass->Fill(Reco_Dimuon_invMass->at(j));
@@ -511,7 +521,6 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
             h1D_phiMuPlus->Fill(phiplus);
             h1D_phiMuMinus->Fill(phiminus);
 
-            h1D_zVtx->Fill(zVtx);
 
             //Azimuthal separation between the two daughter muons.
             double deltaPhiMuMu = std::abs( TVector2::Phi_mpi_pi(phiplus - phiminus) );
@@ -550,6 +559,17 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
 
         }//End of dimuon candidate loop.
 
+        if(nSelectedInEvent == 0) continue; //Skip to next event if no dimuon candidate passed the selection in this event.
+
+        //zVtx histogram for selected events.
+        h1D_zVtx->Fill(zVtx);
+
+        if(nSelectedInEvent > 1) nMultiDimuonEvents++;
+
+        //Temporary histogram to check the number of events vs centrality.
+        if(dataset.hasCentrality){
+            h1D_eventsVsCentrality->Fill(Centrality/2.);
+        }
 
         //Track progress of event loop.
         Long64_t progressStep = std::max<Long64_t>(1, nEvents / 100);
@@ -568,7 +588,7 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
 
     std::cout << "\n\n> Selections applied on " << dataset.name << "\n" << std::endl;
     std::cout << "> Writing histograms to output file..." << "\n" << std::endl;
-    std::cout << "> Number of Z bosons selected = " << h1D_invMass->GetEntries() << std::endl;
+    std::cout << "> Number of selected dimuon candidates = " << h1D_invMass->GetEntries() << std::endl;
     std::cout << "> Number of events with multiple dimuon candidates = " << nMultiDimuonEvents << std::endl;
 
 
@@ -581,6 +601,9 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
         //Latest correlation histograms
         h2D_muonPtRelDiff_Cent->Write();
         h2D_zPt_Cent->Write();
+
+        //The temporary event vs centrality one
+        h1D_eventsVsCentrality->Write();
     }
     h1D_invMass->Write();
     h1D_zPt->Write();

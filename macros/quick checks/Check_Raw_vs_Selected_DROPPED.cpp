@@ -7,10 +7,131 @@ Selected: from 'mySelectedData.root', after applying the selection criteria.
 */
 
 
+//---Enumerates
+enum class SampleType {
+    Data,
+    MC
+};
+
+enum class CollisionSystem {
+    ppRef,
+    PbPb
+};
+
+//---Structs
+struct Dataset {
+    std::string name;
+    SampleType type;
+    CollisionSystem system;
+    int year;
+    std::string treeName;
+    std::string filePattern;
+    std::string basePath;
+
+    bool hasCentrality;//Or maybe is AA
+    bool applyTrigger;
+    ULong64_t triggerBit;
+};
+
+Dataset datasets[] = {
+    
+    {
+        "ppRef2024_Data",
+        SampleType::Data,
+        CollisionSystem::ppRef,
+        2024,
+        "hionia/DimuonTree",
+        "HighPtMuons_HLTL2SingleMu_ppRef2024.root",
+        BasePath + "Data/ppRef2024/",
+        false,
+        false,
+        0ULL
+    },
+    
+    {
+        "PbPb2023_Data",
+        SampleType::Data,
+        CollisionSystem::PbPb,
+        2023,
+        "hionia/DimuonTree",
+        "HighPtMuons_HLTL2SingleMu_PbPb2023.root",
+        BasePath + "Data/PbPb2023/",
+        true,
+        true,
+        1ULL << 6 //'HLT_HIL2SingleMu7_v'
+    },
+
+    {
+        "PbPb2024_Data",
+        SampleType::Data,
+        CollisionSystem::PbPb,
+        2024,
+        "hionia/DimuonTree",
+        "HighPtMuons_HLTL2SingleMu_PbPb2024Data.root",
+        BasePath + "Data/PbPb2024/",
+        true,
+        true,
+        1ULL << 7 //'HLT_HIL2SingleMu12_v'
+    },
+
+    {
+        "PbPb2025_Data",
+        SampleType::Data,
+        CollisionSystem::PbPb,
+        2025,
+        "hionia/DimuonTree",
+        "HighPtMuon_PbPb2025Data.root",
+        BasePath + "Data/PbPb2025/",
+        true,
+        true,
+        1ULL << 7 //'HLT_HIL2SingleMu12_v'
+    },
+
+    {
+        "PbPb2026_Data",
+        SampleType::Data,
+        CollisionSystem::PbPb,
+        2026,
+        "hionia/DimuonTree",
+        "HighPtMuon_PbPb2026Data.root",
+        BasePath + "Data/PbPb2026/",
+        true,
+        true,
+        1ULL << 7 //'HLT_HIL2SingleMu12_v'
+    },
+
+    {
+        "PbPb2024_MC",
+        SampleType::MC,
+        CollisionSystem::PbPb,
+        2024,
+        "hionia/myTree",
+        "Oniatree_PowhegZtoMuMu_PbPb2024_*.root",
+        BasePath + "MC/PbPb2024/DYto2Mu_MLL-50_TuneCP5_5p36TeV_powheg-pythia8/PowhegEmbedded_March9/260309_143939/0000/",
+        false,
+        false,
+        0ULL
+    },
+
+    {
+        "ppRef2024_MC",
+        SampleType::MC,
+        CollisionSystem::ppRef,
+        2024,
+        "hionia/myTree",
+        "Oniatree_PowhegZtoMuMu_ppRef2024_*.root",
+        BasePath + "MC/ppRef2024/DYToMuMu_M-50_TuneCP5_5p36TeV_powheg-pythia8/Powheg_ppRefPileup_March20/260320_125046/0000/",
+        false,
+        false,
+        0ULL
+    }
+};
+
+
 //List of histograms to plot raw vs selected.
 std::vector<std::string> histNames = {
 
-    "h3D_PtMuPl_PtMuMi_Cent",
+    //"h3D_PtMuPl_PtMuMi_Cent",
     "h1D_centrality",
     "h1D_hiHF",
     "h1D_invMass",
@@ -33,15 +154,15 @@ std::vector<std::string> histNames = {
     "h1D_acoplanarity",
 
     "h1D_muonPtRelDiff",
-    "h1D_muonPtDiff",
+    "h1D_muonPtDiff"
 
-    "h2D_muonPtRelDiff_Cent",
-    "h2D_zPt_Cent",
+    //"h2D_muonPtRelDiff_Cent",
+    //"h2D_zPt_Cent",
 
-    "h2D_muonPtRelDiff_zPt",
-    "h2D_muonPtRelDiff_zRapidity",
-    "h2D_zPt_zRapidity",
-    "h2D_PtMuPl_PtMuMi"
+//    "h2D_muonPtRelDiff_zPt",
+//    "h2D_muonPtRelDiff_zRapidity",
+//    "h2D_zPt_zRapidity",
+//    "h2D_PtMuPl_PtMuMi"
 };
 
 struct HistStruct{
@@ -52,24 +173,26 @@ struct HistStruct{
 
 std::vector<HistStruct> histStructs;
 
-void foo(TFile* inputFile);
+void myFunction(TFile* inputFile, Dataset& dataset);
+void MakePlot(HistStruct& histStruct, Dataset& dataset);
 
-
-void main(){
+void Check_Raw_vs_Selected(){
 
     gROOT->SetBatch(kTRUE);
     TFile* inputFile = new TFile("mySelectedData.root", "READ");
 
-    foo(inputFile);
-
+    myFunction(inputFile, datasets[0]);
+    myFunction(inputFile, datasets[1]);
+    myFunction(inputFile, datasets[2]);
+    myFunction(inputFile, datasets[3]);
+    myFunction(inputFile, datasets[4]);
+    myFunction(inputFile, );
 
     inputFile->Close();
 }
 
 
-
-
-void foo(TFile* inputFile){
+void myFunction(TFile* inputFile, Dataset& dataset){
 
     //Get raw from TTree.
     //This part is exactly the same as in ApplyGoodSelection.cpp, just without the selections.
@@ -167,7 +290,17 @@ void foo(TFile* inputFile){
     chain->SetBranchAddress("Reco_Muon_isTightCutBased", Reco_Muon_isTightCutBased);
     
 
-    //Histograms to be saved in the ROOT mySelectedData file.
+    //Raw histograms. Store them in ROOT memory.
+    gROOT->cd();
+    std::string rawDirName = "rawHistograms_" + whichDataset;
+    TDirectory* rawDir = gDirectory->mkdir(rawDirName.c_str());
+        if (!rawDir) {
+            std::cerr << "Nao foi possivel criar " << rawDirName << '\n';
+            return;
+        }
+    rawDir->cd();
+
+    //
     TH3D* h3D_PtMuPl_PtMuMi_Cent = nullptr;
     TH1D* h1D_centrality = nullptr;
     TH1D* h1D_hiHF = nullptr;
@@ -301,10 +434,10 @@ void foo(TFile* inputFile){
             Short_t muonPlusIndex = Reco_Dimuon_muonPlusIndex[j]; //Index of antimuon in the reco muon arrays.
             Short_t muonMinusIndex = Reco_Dimuon_muonMinusIndex[j]; //Index of corresponding muon in the reco muon arrays.
 
-            ptplus = Reco_Muon_pt->at(muonPlusIndex); //pT of antimuon.
-            ptminus = Reco_Muon_pt->at(muonMinusIndex); //pT of corresponding muon.
-            etaplus = Reco_Muon_eta->at(muonPlusIndex); //Pseudorapidity of antimuon.
-            etaminus = Reco_Muon_eta->at(muonMinusIndex); //Pseudorapidity of corresponding muon.
+            double ptplus = Reco_Muon_pt->at(muonPlusIndex); //pT of antimuon.
+            double ptminus = Reco_Muon_pt->at(muonMinusIndex); //pT of corresponding muon.
+            double etaplus = Reco_Muon_eta->at(muonPlusIndex); //Pseudorapidity of antimuon.
+            double etaminus = Reco_Muon_eta->at(muonMinusIndex); //Pseudorapidity of corresponding muon.
 
 
             //Simple histograms
@@ -317,8 +450,8 @@ void foo(TFile* inputFile){
             h1D_etaMuPlus->Fill(etaplus);
             h1D_etaMuMinus->Fill(etaminus);
 
-            phiplus = Reco_Muon_phi->at(muonPlusIndex);
-            phiminus = Reco_Muon_phi->at(muonMinusIndex);
+            double phiplus = Reco_Muon_phi->at(muonPlusIndex);
+            double phiminus = Reco_Muon_phi->at(muonMinusIndex);
             h1D_phiMuPlus->Fill(phiplus);
             h1D_phiMuMinus->Fill(phiminus);
 
@@ -382,94 +515,56 @@ void foo(TFile* inputFile){
 
     //Put raw histograms in the vector of HistStructs
     for(const auto& histName : histNames) {
+
         HistStruct histStruct;
         histStruct.name = histName;
-        histStruct.rawHist = dynamic_cast<TH1*>(gDirectory->Get(histName.c_str()));
-        histStruct.selectedHist = dynamic_cast<TH1*>(inputFile->Get(histName.c_str()));
+        histStruct.rawHist = dynamic_cast<TH1*>(rawDir->Get(histName.c_str()));
+
+        TDirectory *dir = inputFile->GetDirectory(whichDataset.c_str());
+        histStruct.selectedHist = dynamic_cast<TH1*>(dir->Get(histName.c_str()));
         histStructs.push_back(histStruct);
+
+        //Now all the raw and selected histograms are in the vector of HistStructs. We can now plot them on the same canvas.
+        MakePlot(histStruct, whichDataset);
     }
 
-
-    //Selected
-    TDirectory *dir = inputFile->GetDirectory(whichDataset.c_str());
-    TH1 *hist = 
-
-
-
-    for(const auto& histName : selectedDistributions) {
-
-        //Get original histograms
-        TH1D* h_PbPb_original = dynamic_cast<TH1D*>(PbPb_dir->Get(histName.c_str()));
-        TH1D* h_ppRef_original = dynamic_cast<TH1D*>(ppRef_dir->Get(histName.c_str()));
-
-            if (!h_PbPb_original || !h_ppRef_original) {//Just checking if everything was found.
-                std::cerr << "Error: Could not find the histogram "
-                        << histName << " in the input file."
-                        << std::endl;
-                continue;
-            }
-        
-        //Get histogram clones to manipulate.
-        TH1D* h_PbPb = dynamic_cast<TH1D*>(h_PbPb_original->Clone(("h_PbPb_" + histName).c_str()));
-        TH1D* h_ppRef = dynamic_cast<TH1D*>(h_ppRef_original->Clone(("h_ppRef_" + histName).c_str()));
-        h_PbPb->SetDirectory(nullptr);
-        h_ppRef->SetDirectory(nullptr);
+    gROOT->cd();
+    delete rawDir;
+    delete chain;
+}
 
 
-        //Begin normalization and stuff
-        h_PbPb->Scale(1.0 / h_PbPb->Integral());
-        h_ppRef->Scale(1.0 / h_ppRef->Integral());
+void MakePlot(HistStruct& histStruct, std::string whichDataset){
 
-        std::string canvasName = "c_" + histName;
-        TCanvas *c = new TCanvas(canvasName.c_str(), "Normalized Distributions", 800, 600);
-        basicCanvasFormatting(c);
-        c->SetLogy();
+    basicHistFormatting(histStruct.rawHist);
+    basicHistFormatting(histStruct.selectedHist);
 
-            if(histName == "h1D_muonPtRelDiff"){//Turn off log scale for these two distributions.
-                c->SetLogy(0);
-            }
-
-        basicHistFormatting(h_PbPb);
-        basicHistFormatting(h_ppRef);
-        
-        h_PbPb->SetMarkerStyle(21);
-        h_PbPb->SetMarkerSize(0.8);
-        h_PbPb->SetMarkerColor(kRed);
-        h_PbPb->SetLineColor(kRed);
-        
-        h_ppRef->SetMarkerStyle(25);
-        h_ppRef->SetMarkerSize(0.8);
-        h_ppRef->SetMarkerColor(kBlack);
-        h_ppRef->SetLineColor(kBlack);
-
-        h_PbPb->GetYaxis()->SetTitle("Normalized Entries");
-
-            if(histName == "h1D_ptMuPlus" || histName == "h1D_ptMuMinus"){
-                h_PbPb->GetXaxis()->SetRangeUser(18., 100.);
-            }
-        
-        h_PbPb->Draw("P");
-        h_ppRef->Draw("P SAME");
-        
-        TLegend *leg = new TLegend(0.7, 0.78, 0.95, 0.88);
-        basicLegendFormatting(leg);
-        leg->AddEntry(h_PbPb, JointPbPb.c_str(), "p");
-        leg->AddEntry(h_ppRef, "ppRef2024", "p");
-        leg->Draw();
-
-        drawLatexText("#bf{CMS}", 0.12, 0.93, 0.042);
-        drawLatexText("#it{Work in Progress}", 0.2, 0.93, 0.033);
-        drawLatexText(dataSamplesUsed.c_str(), 0.5, 0.93, 0.033);
-
-        c->Update();
-        std::string outputName = "Normalized_Distributions_Joined_" + histName + plot_extension;
-        c->SaveAs(outputName.c_str());
-
-        delete leg;
-        delete h_PbPb;
-        delete h_ppRef;
-        delete c;
-    }
+    TCanvas *c = new TCanvas("c", "c", 800, 600);
+    basicCanvasFormatting(c);
     
+    histStruct.rawHist->SetLineColor(kBlack);
+    histStruct.rawHist->SetLineWidth(2);
+    
+    histStruct.selectedHist->SetLineColor(kOrange);
+    histStruct.selectedHist->SetLineWidth(2);
 
+    histStruct.rawHist->Draw("HIST");
+    histStruct.selectedHist->Draw("HIST SAME");
+    
+    TLegend *leg = new TLegend(0.7, 0.78, 0.95, 0.88);
+    basicLegendFormatting(leg);
+    leg->AddEntry(histStruct.rawHist, "Raw", "l");
+    leg->AddEntry(histStruct.selectedHist, "Selected", "l");
+    leg->Draw();
+
+    drawLatexText("#bf{CMS}", 0.12, 0.93, 0.042);
+    drawLatexText("#it{Work in Progress}", 0.2, 0.93, 0.033);
+    drawLatexText(whichDataset.c_str(), 0.5, 0.93, 0.033);
+
+    c->Update();
+    std::string outputName = whichDataset + "_" + histStruct.name + plot_extension;
+    c->SaveAs(outputName.c_str());
+
+    delete leg;
+    delete c;
 }
