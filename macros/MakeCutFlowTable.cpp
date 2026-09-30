@@ -197,7 +197,7 @@ void MakeCutFlowTable(){
     gROOT->SetBatch(kTRUE);
     flowTablesVector.clear(); //Clear the vector before starting.
 
-    //MakeTableFromTree(datasets[0]); //ppRef2024
+    MakeTableFromTree(datasets[0]); //ppRef2024
     MakeTableFromTree(datasets[1]); //PbPb2023
     MakeTableFromTree(datasets[2]); //PbPb2024
     //MakeTableFromTree(datasets[3]); //PbPb2025
