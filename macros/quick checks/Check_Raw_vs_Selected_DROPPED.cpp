@@ -1,63 +1,11 @@
 /*
-Apply selections and create histograms for dimuon kinematic analysis (Z to mumu channel) in PbPb and pp collisions.
+Plots raw vs selected variables in the same canvas.
 
---- Sept 25/2026:
-Jointed dataset = PbPb2023 + PbPb2024;
+Raw: from the processed TTree, before any selection is applied.
+Selected: from 'mySelectedData.root', after applying the selection criteria.
 
---- Datasets used:
-PbPb2023
-PbPb2024
-PbPb2025
-PbPb2026
-ppRef 2024.
-
-Trigger: HLT_HIL2SingleMu.
 */
 
-//---Libraries
-#include <TROOT.h>
-#include <TFile.h>
-#include <TDirectory.h>
-#include <TTree.h>
-#include <TH1.h>
-#include <TH2.h>
-#include <TH3.h>
-#include <TString.h>
-#include <TCanvas.h>
-#include <TStyle.h>
-#include <TLegend.h>
-#include <TMath.h>
-#include <TLorentzVector.h>
-#include <TChain.h>
-#include <iostream>
-#include <fstream>
-#include <cstdio>
-#include <string>
-#include <cstring>
-#include <vector>
-#include <cmath>
-#include <TVector2.h>
-#include <algorithm>
-
-
-//Location of datasets
-std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
-//std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
-
-
-//Good Selection values
-const double maxZvtx = 15.0;
-
-const double minZ_Mass = 60.;
-const double maxZ_Mass = 120.;
-const double RapidityCutValue = 2.4;
-
-const double EtaCutValue = 2.4;
-const double ptCutValue = 20.;
-
-
-// ##############################################################################
-// ##############################################################################
 
 //---Enumerates
 enum class SampleType {
@@ -180,36 +128,74 @@ Dataset datasets[] = {
 };
 
 
-//---Function declarations
-void makeGoodSelection(const Dataset& dataset, TFile* outputFile);
-void CombinePbPbYears(TFile* outputFile);
+//List of histograms to plot raw vs selected.
+std::vector<std::string> histNames = {
 
+    //"h3D_PtMuPl_PtMuMi_Cent",
+    "h1D_centrality",
+    "h1D_hiHF",
+    "h1D_invMass",
+    "h1D_zPt",
+    "h1D_zRapidity",
 
-//---Main
-void ApplyGoodSelection(){
+    "h1D_ptMuPlus",
+    "h1D_ptMuMinus",
+
+    "h1D_etaMuPlus",
+    "h1D_etaMuMinus",
+
+    "h1D_phiMuPlus",
+    "h1D_phiMuMinus",
+
+    "h1D_zVtx",
+
+    "h1D_deltaPhiMuMu",
+    "h1D_deltaRMuMu",
+    "h1D_acoplanarity",
+
+    "h1D_muonPtRelDiff",
+    "h1D_muonPtDiff"
+
+    //"h2D_muonPtRelDiff_Cent",
+    //"h2D_zPt_Cent",
+
+//    "h2D_muonPtRelDiff_zPt",
+//    "h2D_muonPtRelDiff_zRapidity",
+//    "h2D_zPt_zRapidity",
+//    "h2D_PtMuPl_PtMuMi"
+};
+
+struct HistStruct{
+    std::string name;
+    TH1* rawHist;
+    TH1* selectedHist;
+};
+
+std::vector<HistStruct> histStructs;
+
+void myFunction(TFile* inputFile, Dataset& dataset);
+void MakePlot(HistStruct& histStruct, Dataset& dataset);
+
+void Check_Raw_vs_Selected(){
 
     gROOT->SetBatch(kTRUE);
+    TFile* inputFile = new TFile("mySelectedData.root", "READ");
 
-    //Make output ROOT file to store histograms of selected data.
-    TFile *outputFile = new TFile("mySelectedData.root", "RECREATE");
+    myFunction(inputFile, datasets[0]);
+    myFunction(inputFile, datasets[1]);
+    myFunction(inputFile, datasets[2]);
+    myFunction(inputFile, datasets[3]);
+    myFunction(inputFile, datasets[4]);
+    myFunction(inputFile, );
 
-    //Make good selection on each dataset and write selected histograms to output ROOT file.
-    makeGoodSelection(datasets[0], outputFile); //ppRef2024
-    makeGoodSelection(datasets[1], outputFile); //PbPb2023
-    makeGoodSelection(datasets[2], outputFile); //PbPb2024
-    makeGoodSelection(datasets[3], outputFile); //PbPb2025
-    makeGoodSelection(datasets[4], outputFile); //PbPb2026
-
-    //Combine selected PbPb datasets into a single directory.
-    CombinePbPbYears(outputFile);
-
-    outputFile->Close();
-    delete outputFile;
+    inputFile->Close();
 }
 
-void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
 
-    //Load root file.
+void myFunction(TFile* inputFile, Dataset& dataset){
+
+    //Get raw from TTree.
+    //This part is exactly the same as in ApplyGoodSelection.cpp, just without the selections.
     std::string fullPath = dataset.basePath + dataset.filePattern;
 
     TChain *chain = new TChain(dataset.treeName.c_str());
@@ -225,10 +211,6 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
     Long64_t nEvents = chain->GetEntries();
 
     std::cout << "> Total number of events on tree = " << nEvents << "\n" << std::endl;
-
-    //Create a directory for this dataset in the output ROOT file.
-    TDirectory* datasetDir = outputFile->mkdir(dataset.name.c_str());
-    datasetDir->cd();
 
     const int MAX_DIMUON = 1000;
     const int MAX_MUON   = 1000;
@@ -308,7 +290,17 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
     chain->SetBranchAddress("Reco_Muon_isTightCutBased", Reco_Muon_isTightCutBased);
     
 
-    //Histograms to be saved in the ROOT mySelectedData file.
+    //Raw histograms. Store them in ROOT memory.
+    gROOT->cd();
+    std::string rawDirName = "rawHistograms_" + whichDataset;
+    TDirectory* rawDir = gDirectory->mkdir(rawDirName.c_str());
+        if (!rawDir) {
+            std::cerr << "Nao foi possivel criar " << rawDirName << '\n';
+            return;
+        }
+    rawDir->cd();
+
+    //
     TH3D* h3D_PtMuPl_PtMuMi_Cent = nullptr;
     TH1D* h1D_centrality = nullptr;
     TH1D* h1D_hiHF = nullptr;
@@ -324,7 +316,7 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
 
         h1D_hiHF = new TH1D("h1D_hiHF",
         "hiHF for selected Z candidates;hiHF;N of dimuons",
-        100, 0., 8000.);
+        200, 0., 8000.);
     }
     
     TH1D* h1D_invMass = new TH1D("h1D_invMass",
@@ -430,80 +422,22 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
         200, 0., 200., 200, 0., 200.);
 
 
-    //Events vs centrality just as a test for Sept.30 SPRACE meeting:
-    TH1D* h1D_eventsVsCentrality = nullptr;
-    if(dataset.hasCentrality){
-        h1D_eventsVsCentrality = new TH1D("h1D_eventsVsCentrality",
-        "Events vs Centrality;Centrality [%];N of events",
-            200, 0., 100.);
-    }
-
-    
-    //Muon-level selection variables
-    double ptplus, ptminus;
-    double etaplus, etaminus;
-    double phiplus, phiminus;
-    bool MuPlIsTight;
-    bool MuMiIsTight;
-
-    Long64_t nMultiDimuonEvents = 0; //Tracker of n of events with more than one dimuon candidate passing the selection.
-
+    //Start event-level loop
     for(Long64_t i = 0; i < nEvents; ++i){//Loop through all EVENTS in the CHAIN.
 
         chain->GetEntry(i); //Get event i.
-        int nSelectedInEvent = 0; //Tracker of n of dimuon candidates passing the selection in a single event.
 
-        //Good event selection. No centrality selection at this point.
-        bool goodVertex = (std::abs(zVtx) < maxZvtx);
-
-        if (!goodVertex) continue;
 
         for(Short_t j = 0; j < Reco_Dimuon_size; ++j){ //Loop through all reco dimuon candidates of event i.
             
-            //Good Z selection
-            bool goodMass = (Reco_Dimuon_invMass->at(j) > minZ_Mass && Reco_Dimuon_invMass->at(j) < maxZ_Mass);
-            bool goodRapidity = (std::abs(Reco_Dimuon_rapidity->at(j)) < RapidityCutValue);
-            bool goodCharge = (Reco_Dimuon_sign[j] == 0); //Opposite sign muons.
-            bool goodVtxProb = (Reco_Dimuon_vtxProb[j] > 0.001); //Vertex probability cut of .1% for dimuon candidates.
-            bool isTriggerMatched = true;
 
-                if (dataset.applyTrigger) {
-                    //**At least one** of the daughter muons must be matched to the trigger.
-                    isTriggerMatched = (Reco_Dimuon_trig[j] & dataset.triggerBit);
-                }
-
-            if (!goodMass) continue;
-            if (!goodRapidity) continue;
-            if (!goodCharge) continue;
-            if (!goodVtxProb) continue;
-            if (!isTriggerMatched) continue;
-
-            //Good muon selection
             Short_t muonPlusIndex = Reco_Dimuon_muonPlusIndex[j]; //Index of antimuon in the reco muon arrays.
             Short_t muonMinusIndex = Reco_Dimuon_muonMinusIndex[j]; //Index of corresponding muon in the reco muon arrays.
 
-            ptplus = Reco_Muon_pt->at(muonPlusIndex); //pT of antimuon.
-            ptminus = Reco_Muon_pt->at(muonMinusIndex); //pT of corresponding muon.
-            etaplus = Reco_Muon_eta->at(muonPlusIndex); //Pseudorapidity of antimuon.
-            etaminus = Reco_Muon_eta->at(muonMinusIndex); //Pseudorapidity of corresponding muon.
-            MuPlIsTight = Reco_Muon_isTightCutBased[muonPlusIndex];
-            MuMiIsTight = Reco_Muon_isTightCutBased[muonMinusIndex];
-            
-            bool goodMuPl = (ptplus > ptCutValue)
-                            && (std::abs(etaplus) < EtaCutValue)
-                            && (MuPlIsTight);
-
-            bool goodMuMi = (ptminus > ptCutValue)
-                            && (std::abs(etaminus) < EtaCutValue)
-                            && (MuMiIsTight);
-
-            if (!goodMuPl || !goodMuMi) continue;
-            //End of good selection for dimuon candidate j of event i.
-
-            //Sept. 24, 2026: Temporary.
-            //Keep track of the number of dimuon candidates passing the selection in this event.
-            //We will have to deal with the case of more than one dimuon candidate passing the selection in a single event in the future.
-            nSelectedInEvent++;
+            double ptplus = Reco_Muon_pt->at(muonPlusIndex); //pT of antimuon.
+            double ptminus = Reco_Muon_pt->at(muonMinusIndex); //pT of corresponding muon.
+            double etaplus = Reco_Muon_eta->at(muonPlusIndex); //Pseudorapidity of antimuon.
+            double etaminus = Reco_Muon_eta->at(muonMinusIndex); //Pseudorapidity of corresponding muon.
 
 
             //Simple histograms
@@ -516,11 +450,12 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
             h1D_etaMuPlus->Fill(etaplus);
             h1D_etaMuMinus->Fill(etaminus);
 
-            phiplus = Reco_Muon_phi->at(muonPlusIndex);
-            phiminus = Reco_Muon_phi->at(muonMinusIndex);
+            double phiplus = Reco_Muon_phi->at(muonPlusIndex);
+            double phiminus = Reco_Muon_phi->at(muonMinusIndex);
             h1D_phiMuPlus->Fill(phiplus);
             h1D_phiMuMinus->Fill(phiminus);
 
+            h1D_zVtx->Fill(zVtx);
 
             //Azimuthal separation between the two daughter muons.
             double deltaPhiMuMu = std::abs( TVector2::Phi_mpi_pi(phiplus - phiminus) );
@@ -559,17 +494,6 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
 
         }//End of dimuon candidate loop.
 
-        if(nSelectedInEvent == 0) continue; //Skip to next event if no dimuon candidate passed the selection in this event.
-
-        //zVtx histogram for selected events.
-        h1D_zVtx->Fill(zVtx);
-
-        if(nSelectedInEvent > 1) nMultiDimuonEvents++;
-
-        //Temporary histogram to check the number of events vs centrality.
-        if(dataset.hasCentrality){
-            h1D_eventsVsCentrality->Fill(Centrality/2.);
-        }
 
         //Track progress of event loop.
         Long64_t progressStep = std::max<Long64_t>(1, nEvents / 100);
@@ -585,120 +509,62 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
 
     }//Exiting event-by-event loop.
 
-
     std::cout << "\n\n> Selections applied on " << dataset.name << "\n" << std::endl;
     std::cout << "> Writing histograms to output file..." << "\n" << std::endl;
-    std::cout << "> Number of selected dimuon candidates = " << h1D_invMass->GetEntries() << std::endl;
-    std::cout << "> Number of events with multiple dimuon candidates = " << nMultiDimuonEvents << std::endl;
+    std::cout << "> Number of Z bosons selected = " << h1D_invMass->GetEntries() << std::endl;
 
+    //Put raw histograms in the vector of HistStructs
+    for(const auto& histName : histNames) {
 
-    //Write everything on the current directory.
-    if(dataset.hasCentrality){//Only write for PbPb datasets.
-        h3D_PtMuPl_PtMuMi_Cent->Write(); 
-        h1D_centrality->Write();
-        h1D_hiHF->Write();
+        HistStruct histStruct;
+        histStruct.name = histName;
+        histStruct.rawHist = dynamic_cast<TH1*>(rawDir->Get(histName.c_str()));
 
-        //Latest correlation histograms
-        h2D_muonPtRelDiff_Cent->Write();
-        h2D_zPt_Cent->Write();
+        TDirectory *dir = inputFile->GetDirectory(whichDataset.c_str());
+        histStruct.selectedHist = dynamic_cast<TH1*>(dir->Get(histName.c_str()));
+        histStructs.push_back(histStruct);
 
-        //The temporary event vs centrality one
-        h1D_eventsVsCentrality->Write();
+        //Now all the raw and selected histograms are in the vector of HistStructs. We can now plot them on the same canvas.
+        MakePlot(histStruct, whichDataset);
     }
-    h1D_invMass->Write();
-    h1D_zPt->Write();
-    h1D_zRapidity->Write();
-    h1D_ptMuPlus->Write();
-    h1D_ptMuMinus->Write();
-    h1D_etaMuPlus->Write();
-    h1D_etaMuMinus->Write();
-    h1D_phiMuPlus->Write();
-    h1D_phiMuMinus->Write();
-    h1D_zVtx->Write();
-    h1D_deltaPhiMuMu->Write();
-    h1D_deltaRMuMu->Write();
-    h1D_acoplanarity->Write();
-    h1D_muonPtRelDiff->Write();
-    h1D_muonPtDiff->Write();
-    
-    //Latest correlation histograms
-    h2D_muonPtRelDiff_zPt->Write();
-    h2D_muonPtRelDiff_zRapidity->Write();
-    h2D_zPt_zRapidity->Write();
-    h2D_PtMuPl_PtMuMi->Write();
-    
-    //Leave directory.
-    outputFile->cd();
+
+    gROOT->cd();
+    delete rawDir;
     delete chain;
 }
 
-void CombinePbPbYears(TFile* outputFile){
 
-    //Get individual years.
-    TDirectory* dir2023 = outputFile->GetDirectory("PbPb2023_Data");
-    TDirectory* dir2024 = outputFile->GetDirectory("PbPb2024_Data");
-    if(!dir2023 || !dir2024){
-        std::cout << "Error: PbPb directories not found." << std::endl;
-        return;
-    }
+void MakePlot(HistStruct& histStruct, std::string whichDataset){
 
-    //List of histogram names to combine.
-    std::vector<std::string> histNames = {
+    basicHistFormatting(histStruct.rawHist);
+    basicHistFormatting(histStruct.selectedHist);
 
-        "h3D_PtMuPl_PtMuMi_Cent",
-        "h1D_centrality",
-        "h1D_hiHF",
-        "h1D_invMass",
-        "h1D_zPt",
-        "h1D_zRapidity",
+    TCanvas *c = new TCanvas("c", "c", 800, 600);
+    basicCanvasFormatting(c);
+    
+    histStruct.rawHist->SetLineColor(kBlack);
+    histStruct.rawHist->SetLineWidth(2);
+    
+    histStruct.selectedHist->SetLineColor(kOrange);
+    histStruct.selectedHist->SetLineWidth(2);
 
-        "h1D_ptMuPlus",
-        "h1D_ptMuMinus",
+    histStruct.rawHist->Draw("HIST");
+    histStruct.selectedHist->Draw("HIST SAME");
+    
+    TLegend *leg = new TLegend(0.7, 0.78, 0.95, 0.88);
+    basicLegendFormatting(leg);
+    leg->AddEntry(histStruct.rawHist, "Raw", "l");
+    leg->AddEntry(histStruct.selectedHist, "Selected", "l");
+    leg->Draw();
 
-        "h1D_etaMuPlus",
-        "h1D_etaMuMinus",
+    drawLatexText("#bf{CMS}", 0.12, 0.93, 0.042);
+    drawLatexText("#it{Work in Progress}", 0.2, 0.93, 0.033);
+    drawLatexText(whichDataset.c_str(), 0.5, 0.93, 0.033);
 
-        "h1D_phiMuPlus",
-        "h1D_phiMuMinus",
+    c->Update();
+    std::string outputName = whichDataset + "_" + histStruct.name + plot_extension;
+    c->SaveAs(outputName.c_str());
 
-        "h1D_zVtx",
-
-        "h1D_deltaPhiMuMu",
-        "h1D_deltaRMuMu",
-        "h1D_acoplanarity",
-
-        "h1D_muonPtRelDiff",
-        "h1D_muonPtDiff",
-
-        "h2D_muonPtRelDiff_Cent",
-        "h2D_zPt_Cent",
-
-        "h2D_muonPtRelDiff_zPt",
-        "h2D_muonPtRelDiff_zRapidity",
-        "h2D_zPt_zRapidity",
-        "h2D_PtMuPl_PtMuMi"
-    };
-
-    //Create a new directory for the combined data.
-    TDirectory* combinedDir = outputFile->mkdir("PbPb2023_2024_Data");
-
-    for(const auto& histName : histNames){
-
-        TH1* h2023 = dynamic_cast<TH1*>(dir2023->Get(histName.c_str()));
-        TH1* h2024 = dynamic_cast<TH1*>(dir2024->Get(histName.c_str()));
-        if(!h2023 || !h2024){ 
-            std::cerr<< "Warning: could not get TH1 histogram from single year. " << histName << std::endl;
-            continue;
-        }
-
-        combinedDir->cd();
-        TH1* hCombined = dynamic_cast<TH1*>(h2023->Clone(histName.c_str()));
-        hCombined->SetDirectory(combinedDir);
-
-        hCombined->Add(h2024);
-        hCombined->Write();
-    }
-
-    std::cout << "> Combined PbPb2023 and PbPb2024 histograms written to output file." << std::endl;
-    outputFile->cd();
+    delete leg;
+    delete c;
 }
