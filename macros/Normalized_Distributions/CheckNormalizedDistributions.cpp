@@ -21,9 +21,9 @@ Normalized distributions for selected histograms from input ROOT file.
 
 //---Macro settings
 std::string plot_extension = ".pdf"; // ".png" for regular development and ".pdf" for final quality plots
-std::string whichDataset = "PbPb2023_2024_Data"; // "PbPb2023_2024_Data", "PbPb2023_Data", "PbPb2024_Data". 
-std::string JointPbPb = "PbPb2023+2024"; //"PbPb2023+2024", "PbPb2023", "PbPb2024".
-std::string dataSamplesUsed = "PbPb 2023+2024, ppRef 2024 (5.36 TeV)"; //"PbPb 2023+2024, ppRef 2024 (5.36 TeV)", "PbPb 2023, ppRef 2024 (5.36 TeV)", "PbPb 2024, ppRef 2024 (5.36 TeV)".
+std::string whichDataset = "PbPb_Run3_Data"; // "PbPb_Run3_Data", "PbPb2023_Data", "PbPb2024_Data". 
+std::string JointPbPb = "PbPb2023-2026"; //"PbPb2023-2026", "PbPb2023", "PbPb2024".
+std::string dataSamplesUsed = "PbPb Run 3, ppRef 2024 (5.36 TeV)"; //"PbPb Run 3, ppRef 2024 (5.36 TeV)", "PbPb 2023, ppRef 2024 (5.36 TeV)", "PbPb 2024, ppRef 2024 (5.36 TeV)".
 
 
 // ##############################################################################
@@ -110,22 +110,41 @@ void CheckSelected(TFile* inputFile){
             if(histName == "h1D_ptMuPlus" || histName == "h1D_ptMuMinus"){
                 h_PbPb->GetXaxis()->SetRangeUser(18., 100.);
             }
-        
+
+
+        //Also get the ymax.
+        double maxPbPb = h_PbPb->GetMaximum();
+        double maxppRef = h_ppRef->GetMaximum();
+        double ymax = std::max(maxPbPb, maxppRef);
+
+        h_PbPb->SetMaximum(ymax * 1.5); //Set the maximum to 1.5 times the highest peak.
+
         h_PbPb->Draw("P");
         h_ppRef->Draw("P SAME");
         
-        TLegend *leg = new TLegend(0.7, 0.78, 0.95, 0.88);
+        TLegend* leg = nullptr;
+        if (histName == "h1D_zRapidity") leg = new TLegend(0.45, 0.25, 0.6, 0.35);
+        else leg = new TLegend(0.70, 0.78, 0.95, 0.88);
+
         basicLegendFormatting(leg);
         leg->AddEntry(h_PbPb, JointPbPb.c_str(), "p");
         leg->AddEntry(h_ppRef, "ppRef2024", "p");
+
+            if (histName == "h1D_zRapidity") {
+                leg->SetX1NDC(0.15);
+                leg->SetY1NDC(0.78);
+                leg->SetX2NDC(0.40);
+                leg->SetY2NDC(0.88);
+            }
+
         leg->Draw();
 
-        drawLatexText("#bf{CMS}", 0.12, 0.93, 0.042);
-        drawLatexText("#it{Work in Progress}", 0.2, 0.93, 0.033);
+        drawLatexText("#bf{CMS}", 0.13, 0.93, 0.042);
+        drawLatexText("#it{Internal}", 0.2, 0.93, 0.033);
         drawLatexText(dataSamplesUsed.c_str(), 0.5, 0.93, 0.033);
 
         c->Update();
-        std::string outputName = "Normalized_Distributions_Joined_" + histName + plot_extension;
+        std::string outputName = "Normalized_Distributions_Jointed_" + histName + plot_extension;
         c->SaveAs(outputName.c_str());
 
         delete leg;

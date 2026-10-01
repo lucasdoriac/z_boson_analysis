@@ -3,6 +3,9 @@ Makes PtRelDiff (relative to ppRef) vs centrality bin without using histograms.
 Calculates directly from the Tree.
 Calculates mean and skewness of the PtRelDiff distribution for each centrality bin.
 Analyzes both PbPb2023 and PbPb2024 datasets.
+
+Update Oct1:
+Analyzes PbPb2023-2026, i.e. PbPb Run 3 data with the 'HLT_HIL2SingleMu12_v*' trigger.
 */
 
 //---Libraries
@@ -35,7 +38,7 @@ Analyzes both PbPb2023 and PbPb2024 datasets.
 std::string plot_extension = ".pdf"; // ".png" for regular development and ".pdf" for final quality plots
 std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
 //std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
-std::string dataSamplesUsed = "PbPb 2023+2024, ppRef 2024 (5.36 TeV)";
+std::string dataSamplesUsed = "PbPb 2023-2026, ppRef 2024 (5.36 TeV)";
 
 
 //Good selection threshold values
@@ -48,8 +51,10 @@ const double RAPIDITYCUTVALUE = 2.4;
 const float ETACUTVALUE = 2.4;
 const double PTCUTVALUE = 20.;
 
+
 // ##############################################################################
 // ##############################################################################
+
 
 //---Enumerates
 enum class SampleType {
@@ -58,9 +63,8 @@ enum class SampleType {
 };
 
 enum class CollisionSystem {
-    PbPb2023,
-    PbPb2024,
-    ppRef2024
+    ppRef,
+    PbPb
 };
 
 //---Structs
@@ -68,6 +72,7 @@ struct Dataset {
     std::string name;
     SampleType type;
     CollisionSystem system;
+    int year;
     std::string treeName;
     std::string filePattern;
     std::string basePath;
@@ -78,10 +83,25 @@ struct Dataset {
 };
 
 Dataset datasets[] = {
+    
+    {
+        "ppRef2024_Data",
+        SampleType::Data,
+        CollisionSystem::ppRef,
+        2024,
+        "hionia/DimuonTree",
+        "HighPtMuons_HLTL2SingleMu_ppRef2024.root",
+        BasePath + "Data/ppRef2024/",
+        false,
+        false,
+        0ULL
+    },
+    
     {
         "PbPb2023_Data",
         SampleType::Data,
-        CollisionSystem::PbPb2023,
+        CollisionSystem::PbPb,
+        2023,
         "hionia/DimuonTree",
         "HighPtMuons_HLTL2SingleMu_PbPb2023.root",
         BasePath + "Data/PbPb2023/",
@@ -93,7 +113,8 @@ Dataset datasets[] = {
     {
         "PbPb2024_Data",
         SampleType::Data,
-        CollisionSystem::PbPb2024,
+        CollisionSystem::PbPb,
+        2024,
         "hionia/DimuonTree",
         "HighPtMuons_HLTL2SingleMu_PbPb2024Data.root",
         BasePath + "Data/PbPb2024/",
@@ -103,21 +124,36 @@ Dataset datasets[] = {
     },
 
     {
-        "ppRef2024_Data",
+        "PbPb2025_Data",
         SampleType::Data,
-        CollisionSystem::ppRef2024,
+        CollisionSystem::PbPb,
+        2025,
         "hionia/DimuonTree",
-        "HighPtMuons_HLTL2SingleMu_ppRef2024.root",
-        BasePath + "Data/ppRef2024/",
-        false,
-        false,
-        0ULL
+        "HighPtMuon_PbPb2025Data.root",
+        BasePath + "Data/PbPb2025/",
+        true,
+        true,
+        1ULL << 7 //'HLT_HIL2SingleMu12_v'
+    },
+
+    {
+        "PbPb2026_Data",
+        SampleType::Data,
+        CollisionSystem::PbPb,
+        2026,
+        "hionia/DimuonTree",
+        "HighPtMuon_PbPb2026Data.root",
+        BasePath + "Data/PbPb2026/",
+        true,
+        true,
+        1ULL << 7 //'HLT_HIL2SingleMu12_v'
     },
 
     {
         "PbPb2024_MC",
         SampleType::MC,
-        CollisionSystem::PbPb2024,
+        CollisionSystem::PbPb,
+        2024,
         "hionia/myTree",
         "Oniatree_PowhegZtoMuMu_PbPb2024_*.root",
         BasePath + "MC/PbPb2024/DYto2Mu_MLL-50_TuneCP5_5p36TeV_powheg-pythia8/PowhegEmbedded_March9/260309_143939/0000/",
@@ -129,7 +165,8 @@ Dataset datasets[] = {
     {
         "ppRef2024_MC",
         SampleType::MC,
-        CollisionSystem::ppRef2024,
+        CollisionSystem::ppRef,
+        2024,
         "hionia/myTree",
         "Oniatree_PowhegZtoMuMu_ppRef2024_*.root",
         BasePath + "MC/ppRef2024/DYToMuMu_M-50_TuneCP5_5p36TeV_powheg-pythia8/Powheg_ppRefPileup_March20/260320_125046/0000/",
@@ -138,6 +175,7 @@ Dataset datasets[] = {
         0ULL
     }
 };
+
 
 //Centrality bins for PbPb2024 data
 std::vector<std::pair<double, double>> CentralitySet = {
@@ -173,6 +211,7 @@ std::vector<PtRelDiffResult> ppRefResults; //dummy string, n, mean, meanError, v
 std::vector<PtRelDiffResult> PbPbResults; //centralityBinStr, n, mean, meanError, variance, skewness, skewnessError.
 std::vector<PtRelDiffResult> FinalResults; //centralityBinStr, n, mean, meanError, variance, skewness, skewnessError.
 
+
 //---Function declarations
 void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double highCent, std::vector<double>& ptRelDiffValues);
 void FillResultStructFromVector(bool hasCentrality, double lowCent, double highCent, const std::vector<double>& ptRelDiffValues);
@@ -191,7 +230,7 @@ void PtRelDiff_FromTree_Jointed(){
 
     //Calculate PtRelDiff for ppRef2024 dataset.
     std::vector<double> ptRelDiffValues_ppRef;
-    CalculatePtRelativeDiff(datasets[2], 0., 100., ptRelDiffValues_ppRef); //ppRef2024 dataset.
+    CalculatePtRelativeDiff(datasets[0], 0., 100., ptRelDiffValues_ppRef); //ppRef2024 dataset.
     FillResultStructFromVector(false, 0., 100., ptRelDiffValues_ppRef); //ppRef2024 dataset.
 
     //Now for PbPb2024 dataset. Loop over centrality bins. 
@@ -201,8 +240,10 @@ void PtRelDiff_FromTree_Jointed(){
 
         //Vector to calculate statistics from.
         std::vector<double> ptRelDiffValues;
-        CalculatePtRelativeDiff(datasets[0], centralityBin.first, centralityBin.second, ptRelDiffValues); //PbPb2023 dataset
-        CalculatePtRelativeDiff(datasets[1], centralityBin.first, centralityBin.second, ptRelDiffValues); //PbPb2024 dataset
+        CalculatePtRelativeDiff(datasets[1], centralityBin.first, centralityBin.second, ptRelDiffValues); //PbPb2023 dataset
+        CalculatePtRelativeDiff(datasets[2], centralityBin.first, centralityBin.second, ptRelDiffValues); //PbPb2024 dataset
+        CalculatePtRelativeDiff(datasets[3], centralityBin.first, centralityBin.second, ptRelDiffValues); //PbPb2025 dataset
+        CalculatePtRelativeDiff(datasets[4], centralityBin.first, centralityBin.second, ptRelDiffValues); //PbPb2026 dataset
 
         //Fill a struct that contains statistics for each centrality.
         FillResultStructFromVector(true, centralityBin.first, centralityBin.second, ptRelDiffValues);
@@ -297,12 +338,12 @@ void PlotSkewnessRelativeDiff(){
     line->Draw();
 
     drawLatexText("#bf{CMS}", 0.14, 0.93, 0.04);
-    drawLatexText("#it{Work in Progress}", 0.21, 0.93, 0.03);
+    drawLatexText("#it{Internal}", 0.21, 0.93, 0.03);
     drawLatexText(dataSamplesUsed.c_str(), 0.55, 0.93, 0.03);
     
     //Plot specifications
-    drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.2, 0.8, 0.03);
-    drawLatexText("60 < M_{#mu#mu} < 120 GeV", 0.2, 0.75, 0.03);
+    drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.7, 0.8, 0.03);
+    drawLatexText("60 < M_{#mu#mu} < 120 GeV", 0.7, 0.75, 0.03);
 
     c->Update();
     std::string outputName = "SkewnessDiff_vs_Centrality_FROMTREE" + plot_extension;
@@ -415,12 +456,12 @@ void PlotPtRelativeDiff(){
     line->Draw();
 
     drawLatexText("#bf{CMS}", 0.14, 0.93, 0.04);
-    drawLatexText("#it{Work in Progress}", 0.21, 0.93, 0.03);
+    drawLatexText("#it{Internal}", 0.21, 0.93, 0.03);
     drawLatexText(dataSamplesUsed.c_str(), 0.55, 0.93, 0.03);
     
     //Plot specifications
-    drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.2, 0.8, 0.03);
-    drawLatexText("60 < M_{#mu#mu} < 120 GeV", 0.2, 0.75, 0.03);
+    drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.2, 0.82, 0.03);
+    drawLatexText("60 < M_{#mu#mu} < 120 GeV", 0.2, 0.77, 0.03);
 
     c->Update();
     std::string outputName = "DeltaPtRelDiff_vs_Centrality_FROMTREE" + plot_extension;
@@ -593,11 +634,11 @@ void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double high
             MuPlIsTight = Reco_Muon_isTightCutBased[muonPlusIndex];
             MuMiIsTight = Reco_Muon_isTightCutBased[muonMinusIndex];
             
-            bool goodMuPl = (ptplus > ptCutValue)
+            bool goodMuPl = (ptplus > ptCutValue && ptplus < 200.)
                             && (std::abs(etaplus) < EtaCutValue)
                             && (MuPlIsTight);
 
-            bool goodMuMi = (ptminus > ptCutValue)
+            bool goodMuMi = (ptminus > ptCutValue && ptminus < 200.)
                             && (std::abs(etaminus) < EtaCutValue)
                             && (MuMiIsTight);
 
@@ -677,9 +718,6 @@ std::tuple<Long64_t, double, double, double, double, double> GetStatistics(const
     }
     mean = mean/static_cast<double>(n);
 
-    //Test for 0-100% cent bin:
-    //good: -0.0026304
-    //raw: -0.0241666
 
     double M2 = 0.0;
     double M3 = 0.0;
