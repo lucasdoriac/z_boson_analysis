@@ -364,7 +364,7 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
         64, -TMath::Pi(), TMath::Pi());
 
     TH1D* h1D_zVtx = new TH1D("h1D_zVtx",
-        "Primary vertex z position for selected Z candidates;z_{vtx} [cm];N of dimuons",
+        "Primary vertex z position for selected Z candidates;z_{vtx} [cm];N of events",
         60, -15., 15.);
 
     //Azimuthal separation between the two daughter muons.
@@ -438,7 +438,7 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
             200, 0., 100.);
     }
 
-    
+
     //Muon-level selection variables
     double ptplus, ptminus;
     double etaplus, etaminus;
@@ -446,14 +446,17 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
     bool MuPlIsTight;
     bool MuMiIsTight;
 
-    Long64_t nMultiDimuonEvents = 0; //Tracker of n of events with more than one dimuon candidate passing the selection.
+
+    //Tracker of n of events with more than one dimuon candidate passing the selection.
+    Long64_t nMultiDimuonEvents = 0;
+
 
     for(Long64_t i = 0; i < nEvents; ++i){//Loop through all EVENTS in the CHAIN.
 
         chain->GetEntry(i); //Get event i.
-        int nSelectedInEvent = 0; //Tracker of n of dimuon candidates passing the selection in a single event.
+        int nSelectedInEvent = 0; //Tracker of n of dimuon candidates passing the selection in this event.
 
-        //Good event selection. No centrality selection at this point.
+        //Good event selection. (No centrality selection at this point)
         bool goodVertex = (std::abs(zVtx) < maxZvtx);
 
         if (!goodVertex) continue;
@@ -500,7 +503,7 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
             if (!goodMuPl || !goodMuMi) continue;
             //End of good selection for dimuon candidate j of event i.
 
-            //Sept. 24, 2026: Temporary.
+
             //Keep track of the number of dimuon candidates passing the selection in this event.
             //We will have to deal with the case of more than one dimuon candidate passing the selection in a single event in the future.
             nSelectedInEvent++;
@@ -543,8 +546,8 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
 
             if (dataset.hasCentrality) {
                 h3D_PtMuPl_PtMuMi_Cent->Fill(ptplus, ptminus, Centrality/2.);
-                h1D_centrality->Fill(Centrality/2.);
                 h1D_hiHF->Fill(SumET_HF);
+                h1D_centrality->Fill(Centrality/2.);
 
                 //Latest correlation histograms
                 h2D_muonPtRelDiff_Cent->Fill(Centrality/2., Reco_Dimuon_muonPtRelDiff->at(j));
@@ -561,12 +564,10 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
 
         if(nSelectedInEvent == 0) continue; //Skip to next event if no dimuon candidate passed the selection in this event.
 
-        //zVtx histogram for selected events.
+        if(nSelectedInEvent > 1) nMultiDimuonEvents++; //If event has more than one dimuon candidate passing the selection, increment the counter.
+
+        //Fill event histograms.
         h1D_zVtx->Fill(zVtx);
-
-        if(nSelectedInEvent > 1) nMultiDimuonEvents++;
-
-        //Temporary histogram to check the number of events vs centrality.
         if(dataset.hasCentrality){
             h1D_eventsVsCentrality->Fill(Centrality/2.);
         }
@@ -680,7 +681,7 @@ void CombinePbPbYears(TFile* outputFile){
     };
 
     //Create a new directory for the combined data.
-    TDirectory* combinedDir = outputFile->mkdir("PbPb2023_2024_Data");
+    TDirectory* combinedDir = outputFile->mkdir("PbPb_Run3_Data");
 
     for(const auto& histName : histNames){
 
