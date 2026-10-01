@@ -197,11 +197,11 @@ void MakeCutFlowTable(){
     gROOT->SetBatch(kTRUE);
     flowTablesVector.clear(); //Clear the vector before starting.
 
-    MakeTableFromTree(datasets[0]); //ppRef2024
+    //MakeTableFromTree(datasets[0]); //ppRef2024
     MakeTableFromTree(datasets[1]); //PbPb2023
     MakeTableFromTree(datasets[2]); //PbPb2024
-    //MakeTableFromTree(datasets[3]); //PbPb2025
-    //MakeTableFromTree(datasets[4]); //PbPb2026
+    MakeTableFromTree(datasets[3]); //PbPb2025
+    MakeTableFromTree(datasets[4]); //PbPb2026
 
     //Print the flow tables.
     PrintFlowTables();
@@ -415,11 +415,11 @@ void MakeTableFromTree(const Dataset& dataset){
             MuPlIsTight = Reco_Muon_isTightCutBased[muonPlusIndex];
             MuMiIsTight = Reco_Muon_isTightCutBased[muonMinusIndex];
             
-            bool goodMuPl = (ptplus > ptCutValue)
+            bool goodMuPl = (ptplus > ptCutValue && ptplus < 200.)
                             && (std::abs(etaplus) < EtaCutValue)
                             && (MuPlIsTight);
 
-            bool goodMuMi = (ptminus > ptCutValue)
+            bool goodMuMi = (ptminus > ptCutValue && ptminus < 200.)
                             && (std::abs(etaminus) < EtaCutValue)
                             && (MuMiIsTight);
 
@@ -427,7 +427,6 @@ void MakeTableFromTree(const Dataset& dataset){
             flowTable.nGoodDimuons++;
             //End of good selection for dimuon candidate j of event i.
 
-            //Sept. 24, 2026: Temporary.
             //Keep track of the number of dimuon candidates passing the selection in this event.
             //We will have to deal with the case of more than one dimuon candidate passing the selection in a single event in the future.
             nSelectedInEvent++;

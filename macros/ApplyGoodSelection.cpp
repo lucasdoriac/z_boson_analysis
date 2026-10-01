@@ -3,6 +3,8 @@ Apply selections and create histograms for dimuon kinematic analysis (Z to mumu 
 
 --- Sept 25/2026:
 Jointed dataset = PbPb2023 + PbPb2024;
+--- Oct 1/2026: I've (apparently) corrected the TTree for 2025 and 2026 so we can add them to the Jointed Dataset.
+Jointed dataset = PbPb2023 + PbPb2024 + PbPb2025 + PbPb2026;
 
 --- Datasets used:
 PbPb2023
@@ -11,7 +13,7 @@ PbPb2025
 PbPb2026
 ppRef 2024.
 
-Trigger: HLT_HIL2SingleMu.
+Trigger: HLT_HIL2SingleMu. (PbPb only)
 */
 
 //---Libraries
@@ -492,11 +494,11 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
             MuPlIsTight = Reco_Muon_isTightCutBased[muonPlusIndex];
             MuMiIsTight = Reco_Muon_isTightCutBased[muonMinusIndex];
             
-            bool goodMuPl = (ptplus > ptCutValue)
+            bool goodMuPl = (ptplus > ptCutValue && ptplus < 200.)
                             && (std::abs(etaplus) < EtaCutValue)
                             && (MuPlIsTight);
 
-            bool goodMuMi = (ptminus > ptCutValue)
+            bool goodMuMi = (ptminus > ptCutValue && ptminus < 200.)
                             && (std::abs(etaminus) < EtaCutValue)
                             && (MuMiIsTight);
 
@@ -638,8 +640,10 @@ void CombinePbPbYears(TFile* outputFile){
     //Get individual years.
     TDirectory* dir2023 = outputFile->GetDirectory("PbPb2023_Data");
     TDirectory* dir2024 = outputFile->GetDirectory("PbPb2024_Data");
-    if(!dir2023 || !dir2024){
-        std::cout << "Error: PbPb directories not found." << std::endl;
+    TDirectory* dir2025 = outputFile->GetDirectory("PbPb2025_Data");
+    TDirectory* dir2026 = outputFile->GetDirectory("PbPb2026_Data");
+    if(!dir2023 || !dir2024 || !dir2025 || !dir2026){
+        std::cout << "Error: Some of PbPb directories not found." << std::endl;
         return;
     }
 
@@ -687,8 +691,10 @@ void CombinePbPbYears(TFile* outputFile){
 
         TH1* h2023 = dynamic_cast<TH1*>(dir2023->Get(histName.c_str()));
         TH1* h2024 = dynamic_cast<TH1*>(dir2024->Get(histName.c_str()));
-        if(!h2023 || !h2024){ 
-            std::cerr<< "Warning: could not get TH1 histogram from single year. " << histName << std::endl;
+        TH1* h2025 = dynamic_cast<TH1*>(dir2025->Get(histName.c_str()));
+        TH1* h2026 = dynamic_cast<TH1*>(dir2026->Get(histName.c_str()));
+        if(!h2023 || !h2024 || !h2025 || !h2026){ 
+            std::cerr<< "Warning: could not get TH1 histogram from one of the single years. " << histName << std::endl;
             continue;
         }
 
@@ -697,9 +703,11 @@ void CombinePbPbYears(TFile* outputFile){
         hCombined->SetDirectory(combinedDir);
 
         hCombined->Add(h2024);
+        hCombined->Add(h2025);
+        hCombined->Add(h2026);
         hCombined->Write();
     }
 
-    std::cout << "> Combined PbPb2023 and PbPb2024 histograms written to output file." << std::endl;
+    std::cout << "> Combined PbPb2023, PbPb2024, PbPb2025, and PbPb2026 histograms written to output file." << std::endl;
     outputFile->cd();
 }
