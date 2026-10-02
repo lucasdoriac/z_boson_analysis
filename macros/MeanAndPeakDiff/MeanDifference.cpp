@@ -1,11 +1,9 @@
 /*
-Makes PtRelDiff (relative to ppRef) vs centrality bin without using histograms.
-Calculates directly from the Tree.
-Calculates mean and skewness of the PtRelDiff distribution for each centrality bin.
-Analyzes both PbPb2023 and PbPb2024 datasets.
+Mean and peak difference as function of centrality bin.
+Needs to be directly from the TREE because any projected histogram loses their statistics from the filling time.
 
-Update Oct1:
-Analyzes PbPb2023-2026, i.e. PbPb Run 3 data with the 'HLT_HIL2SingleMu12_v*' trigger.
+**Important**: If we want the skewness of this distribution as well we need to modify this code
+to calculate the skewness directly from the Tree.
 */
 
 //---Libraries
@@ -29,8 +27,8 @@ Analyzes PbPb2023-2026, i.e. PbPb Run 3 data with the 'HLT_HIL2SingleMu12_v*' tr
 #include <cstring>
 #include <vector>
 #include <cmath>
-#include <tuple>
-#include <iomanip>
+#include <TVector2.h>
+#include <algorithm>
 #include "../headers/basicFormatting.h"
 
 
@@ -38,18 +36,21 @@ Analyzes PbPb2023-2026, i.e. PbPb Run 3 data with the 'HLT_HIL2SingleMu12_v*' tr
 std::string plot_extension = ".pdf"; // ".png" for regular development and ".pdf" for final quality plots
 std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
 //std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
+
+std::string whichDataset = "PbPb_Run3_Data"; // "PbPb_Run3_Data", "PbPb2023_Data", "PbPb2024_Data".
+std::string JointPbPb = "PbPb2023-2026"; //"PbPb2023+2024", "PbPb2023", "PbPb2024".
 std::string dataSamplesUsed = "PbPb 2023-2026, ppRef 2024 (5.36 TeV)";
 
 
-//Good selection threshold values
-const double MAX_ZVTX = 15.0;
+//Good Selection values
+const double maxZvtx = 15.0;
 
-const double MINZ_MASS = 60.;
-const double MAXZ_MASS = 120.;
-const double RAPIDITYCUTVALUE = 2.4;
+const double minZ_Mass = 60.;
+const double maxZ_Mass = 120.;
+const double RapidityCutValue = 2.4;
 
-const float ETACUTVALUE = 2.4;
-const double PTCUTVALUE = 20.;
+const double EtaCutValue = 2.4;
+const double ptCutValue = 20.;
 
 
 // ##############################################################################
@@ -177,7 +178,7 @@ Dataset datasets[] = {
 };
 
 
-//Centrality bins for PbPb2024 data
+//Set of centrality bins for PbPb2024 data. We can decide to change the centrality bins later if we want to.
 std::vector<std::pair<double, double>> CentralitySet = {
     {0., 10.},
     {10., 20.},
@@ -186,6 +187,8 @@ std::vector<std::pair<double, double>> CentralitySet = {
     {0., 100.}
 };
 
+
+//Second proposed set of centrality bins for PbPb2024 data.
 /*std::vector<std::pair<double, double>> CentralitySet = {
     {0., 10.},
     {10., 30.},
@@ -194,70 +197,87 @@ std::vector<std::pair<double, double>> CentralitySet = {
     {0., 100.}
 };*/
 
-//A struct is better to organize results in this case.
-struct PtRelDiffResult {
-    std::string centralityBinStr; // For PbPb2024 dataset
-    Long64_t Zcount;
-    double mean;
-    double meanError;
-    double variance;
-    double skewness;
-    double skewnessError;
-};
+
+//Vectors to store mean and peak
+std::vector<std::pair<double, double>> PbPbMean;
+std::vector<std::pair<double, double>> ppRefMean;
+
+std::vector<std::pair<double, double>> PbPbPeak;
+std::vector<std::pair<double, double>> ppRefPeak;
+
+//Vector to save data for TGraphErrors at the end.
+std::vector<std::pair<double, double>> MeanDiffAndError_PbPb_vs_ppRef;
+
+//Vectors to save peak difference and error.
+std::vector<std::pair<double, double>> PeakDiffAndError_PbPb_vs_ppRef;
 
 
-//Vectors to store the results of the PtRelDiff calculation for ppRef and PbPb datasets.
-std::vector<PtRelDiffResult> ppRefResults; //dummy string, n, mean, meanError, variance, skewness, skewnessError.
-std::vector<PtRelDiffResult> PbPbResults; //centralityBinStr, n, mean, meanError, variance, skewness, skewnessError.
-std::vector<PtRelDiffResult> FinalResults; //centralityBinStr, n, mean, meanError, variance, skewness, skewnessError.
+void FillPtHistograms(const Dataset& dataset, double lowCent, double highCent, TH1D* h_MuPl, TH1D* h_MuMi);
+void GetMeanAndPeakDifference(const Dataset& dataset, TH1D* h_MuPl, TH1D* h_MuMi);
+void PlotMeanDifference();
+void PlotPeakDifference();
 
 
-//---Function declarations
-void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double highCent, std::vector<double>& ptRelDiffValues);
-void FillResultStructFromVector(bool hasCentrality, double lowCent, double highCent, const std::vector<double>& ptRelDiffValues);
-std::tuple<Long64_t, double, double, double, double, double> GetStatistics(const std::vector<double>& values);
-void PlotPtRelativeDiff();
-void PlotSkewnessRelativeDiff();
-
-
-//---Main function
-void PtRelDiff_FromTree_Jointed(){
+//---Main function()
+void MeanDifference(){
 
     gROOT->SetBatch(kTRUE);
-    ppRefResults.clear();
-    PbPbResults.clear();
-    FinalResults.clear();
+    
+    //Clear vectors to avoid contamination from previous runs.
+    PbPbMean.clear();
+    ppRefMean.clear();
+    PbPbPeak.clear();
+    ppRefPeak.clear();
+    MeanDiffAndError_PbPb_vs_ppRef.clear();
+    PeakDiffAndError_PbPb_vs_ppRef.clear();
 
-    //Calculate PtRelDiff for ppRef2024 dataset.
-    std::vector<double> ptRelDiffValues_ppRef;
-    CalculatePtRelativeDiff(datasets[0], 0., 100., ptRelDiffValues_ppRef); //ppRef2024 dataset.
-    FillResultStructFromVector(false, 0., 100., ptRelDiffValues_ppRef); //ppRef2024 dataset.
 
-    //Now for PbPb2024 dataset. Loop over centrality bins. 
-    for(const auto& centralityBin : CentralitySet){
+    //Histograms to calculate statistics from.
+    TH1D* h_MuPl = new TH1D("h_MuPl", "Muon Plus pT; pT [GeV]; Entries", 200, 0., 200.);
+    TH1D* h_MuMi = new TH1D("h_MuMi", "Muon Minus pT; pT [GeV]; Entries", 200, 0., 200.);
+    
 
-        std::cout << "\nCalculating PtRelDiff for centrality bin: " << centralityBin.first << "-" << centralityBin.second << "%\n";
+    //Get reference values.
+    FillPtHistograms(datasets[0], 0., 100., h_MuPl, h_MuMi); //ppRef2024 dataset
+    GetMeanAndPeakDifference(datasets[0], h_MuPl, h_MuMi);
 
-        //Vector to calculate statistics from.
-        std::vector<double> ptRelDiffValues;
-        CalculatePtRelativeDiff(datasets[1], centralityBin.first, centralityBin.second, ptRelDiffValues); //PbPb2023 dataset
-        CalculatePtRelativeDiff(datasets[2], centralityBin.first, centralityBin.second, ptRelDiffValues); //PbPb2024 dataset
-        CalculatePtRelativeDiff(datasets[3], centralityBin.first, centralityBin.second, ptRelDiffValues); //PbPb2025 dataset
-        CalculatePtRelativeDiff(datasets[4], centralityBin.first, centralityBin.second, ptRelDiffValues); //PbPb2026 dataset
 
-        //Fill a struct that contains statistics for each centrality.
-        FillResultStructFromVector(true, centralityBin.first, centralityBin.second, ptRelDiffValues);
+    //For PbPb datasets loop over centrality bins. 
+    for(const auto& cBin : CentralitySet){
+
+        //Clear histograms before each centrality call..
+        h_MuPl->Reset();
+        h_MuMi->Reset();
+
+        std::cout << "\nCalculating Mean Diff for centrality bin: " << cBin.first << "-" << cBin.second << "%\n";
+
+        FillPtHistograms(datasets[1], cBin.first, cBin.second, h_MuPl, h_MuMi); //PbPb2023 dataset
+        FillPtHistograms(datasets[2], cBin.first, cBin.second, h_MuPl, h_MuMi); //PbPb2024 dataset
+        FillPtHistograms(datasets[3], cBin.first, cBin.second, h_MuPl, h_MuMi); //PbPb2025 dataset
+        FillPtHistograms(datasets[4], cBin.first, cBin.second, h_MuPl, h_MuMi); //PbPb2026 dataset
+
+        //Histograms contain PbPb2023+2024 at this point.
+        //datasets[1] is passed only to identify this as a PbPb result.
+        GetMeanAndPeakDifference(datasets[1], h_MuPl, h_MuMi);
     }
 
-    //Plot the final results.
-    //One small caution: The final results are filled within the PlotPtRelativeDiff() function.
-    PlotPtRelativeDiff();
-    PlotSkewnessRelativeDiff();
+    PlotMeanDifference();
+    PlotPeakDifference();
+
+    delete h_MuPl;
+    delete h_MuMi;
 }
 
-void PlotSkewnessRelativeDiff(){
-    //Values for TGraphErrors are just skewness diff and skewness error diff.
-    int nPoints = FinalResults.size();
+void PlotPeakDifference(){
+
+    //Calculate relative difference to reference sample:
+    for(size_t i = 0; i < PbPbPeak.size(); ++i){
+        double peakDiff = PbPbPeak[i].first - ppRefPeak[0].first;
+        double peakError = std::sqrt(std::pow(PbPbPeak[i].second, 2) + std::pow(ppRefPeak[0].second, 2));
+        PeakDiffAndError_PbPb_vs_ppRef.push_back(std::make_pair(peakDiff, peakError));
+    }
+
+    int nPoints = PeakDiffAndError_PbPb_vs_ppRef.size();
     if(nPoints != CentralitySet.size()){
         std::cerr << "Error: Number of points in DeltaPtAndError does not match number of centrality bins." << std::endl;
         return;
@@ -271,8 +291,8 @@ void PlotSkewnessRelativeDiff(){
     for(int i = 0; i < nPoints; ++i){
         xValues[i] = i+1;
         xErrors[i] = 0.;
-        yValues[i] = FinalResults[i].skewness;
-        yErrors[i] = FinalResults[i].skewnessError;
+        yValues[i] = PeakDiffAndError_PbPb_vs_ppRef[i].first;
+        yErrors[i] = PeakDiffAndError_PbPb_vs_ppRef[i].second;
     }
 
 
@@ -281,12 +301,11 @@ void PlotSkewnessRelativeDiff(){
     basicGraphFormatting(graph);
 
     //Plot
-    TCanvas* c = new TCanvas("c", "Skewness diff vs Centrality", 800, 600);
+    TCanvas* c = new TCanvas("c", "Peak diff vs Centrality", 800, 600);
     basicCanvasFormatting(c);
-    c->SetLeftMargin(0.13);
 
     //Frame TH1 helper to set the x-axis labels for centrality bins.
-    TH1D* frame = new TH1D("frame_skewness","",nPoints,0.5,nPoints + 0.5);
+    TH1D* frame = new TH1D("frame_peak", "", nPoints, 0.5, nPoints + 0.5);
     basicHistFormatting(frame);
     for(int i = 0; i < nPoints; ++i){
         std::string label = Form("%.0f-%.0f%%", CentralitySet[i].first, CentralitySet[i].second);
@@ -313,7 +332,7 @@ void PlotSkewnessRelativeDiff(){
 
     frame->GetXaxis()->SetTickLength(0.0);
     frame->GetXaxis()->SetTitle("Centrality bin");
-    frame->GetYaxis()->SetTitle("#Delta #gamma_{i}");
+    frame->GetYaxis()->SetTitle("#Delta p_{T,peak}^{PbPb} - #Delta #bar{p_{T,peak}}^{ppRef}");
     frame->GetYaxis()->CenterTitle(true);
     frame->GetYaxis()->SetTitleOffset(1.4);
 
@@ -323,8 +342,8 @@ void PlotSkewnessRelativeDiff(){
     //Format graph.
     graph->SetMarkerStyle(20);
     graph->SetMarkerSize(0.9);
-    graph->SetMarkerColorAlpha(kGreen+1, 1.);
-    graph->SetLineColorAlpha(kGreen-7, 0.8);
+    graph->SetMarkerColorAlpha(kRed+1, 1.);
+    graph->SetLineColorAlpha(kRed-7, 0.8);
     graph->SetLineWidth(2);
 
     //Draw
@@ -342,11 +361,11 @@ void PlotSkewnessRelativeDiff(){
     drawLatexText(dataSamplesUsed.c_str(), 0.55, 0.93, 0.03);
     
     //Plot specifications
-    drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.7, 0.8, 0.03);
-    drawLatexText("60 < M_{#mu#mu} < 120 GeV", 0.7, 0.75, 0.03);
+    drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.8, 0.85, 0.03);
+    drawLatexText("60 < M_{#mu#mu} < 120 GeV", 0.8, 0.8, 0.03);
 
     c->Update();
-    std::string outputName = "SkewnessDiff_vs_Centrality_FROMTREE" + plot_extension;
+    std::string outputName = "PeakDiff_vs_Centrality_FromTree" + plot_extension;
     c->SaveAs(outputName.c_str());
 
     delete frame;
@@ -355,27 +374,16 @@ void PlotSkewnessRelativeDiff(){
     delete c;
 }
 
-void PlotPtRelativeDiff(){
+void PlotMeanDifference() {
 
-    //Before the actual plot we have to take the difference of PbPb values from ppRef values.
-    const auto& ppRefResult = ppRefResults[0];
-    PtRelDiffResult finalResult;
-
-    //Fill finalResult vector.
-    for (size_t i = 0; i < PbPbResults.size(); ++i) {
-        const auto& PbPbResult = PbPbResults[i];
-        finalResult.centralityBinStr = PbPbResult.centralityBinStr;
-        finalResult.Zcount = PbPbResult.Zcount;
-        finalResult.mean = PbPbResult.mean - ppRefResult.mean;
-        finalResult.meanError = std::sqrt(std::pow(PbPbResult.meanError, 2) + std::pow(ppRefResult.meanError, 2));
-        finalResult.variance = finalResult.meanError * finalResult.meanError;
-        finalResult.skewness = PbPbResult.skewness - ppRefResult.skewness;
-        finalResult.skewnessError = std::sqrt(std::pow(PbPbResult.skewnessError, 2) + std::pow(ppRefResult.skewnessError, 2));
-        FinalResults.push_back(finalResult);
+    //Calculate relative difference to reference sample:
+    for(size_t i = 0; i < PbPbMean.size(); ++i){
+        double meanDiff = PbPbMean[i].first - ppRefMean[0].first;
+        double meanError = std::sqrt(std::pow(PbPbMean[i].second, 2) + std::pow(ppRefMean[0].second, 2));
+        MeanDiffAndError_PbPb_vs_ppRef.push_back(std::make_pair(meanDiff, meanError));
     }
 
-    //Values for TGraphErrors are just mean diff and mean error diff so
-    int nPoints = FinalResults.size();
+    int nPoints = MeanDiffAndError_PbPb_vs_ppRef.size();
     if(nPoints != CentralitySet.size()){
         std::cerr << "Error: Number of points in DeltaPtAndError does not match number of centrality bins." << std::endl;
         return;
@@ -389,8 +397,8 @@ void PlotPtRelativeDiff(){
     for(int i = 0; i < nPoints; ++i){
         xValues[i] = i+1;
         xErrors[i] = 0.;
-        yValues[i] = FinalResults[i].mean;
-        yErrors[i] = FinalResults[i].meanError;
+        yValues[i] = MeanDiffAndError_PbPb_vs_ppRef[i].first;
+        yErrors[i] = MeanDiffAndError_PbPb_vs_ppRef[i].second;
     }
 
 
@@ -399,12 +407,11 @@ void PlotPtRelativeDiff(){
     basicGraphFormatting(graph);
 
     //Plot
-    TCanvas* c = new TCanvas("c", "Pt Relative Difference FROMTREE vs Centrality", 800, 600);
+    TCanvas* c = new TCanvas("c", "Mean diff vs Centrality", 800, 600);
     basicCanvasFormatting(c);
-    c->SetLeftMargin(0.13);
 
     //Frame TH1 helper to set the x-axis labels for centrality bins.
-    TH1D* frame = new TH1D("frame_mean","",nPoints,0.5,nPoints + 0.5);
+    TH1D* frame = new TH1D("frame_mean", "", nPoints, 0.5, nPoints + 0.5);
     basicHistFormatting(frame);
     for(int i = 0; i < nPoints; ++i){
         std::string label = Form("%.0f-%.0f%%", CentralitySet[i].first, CentralitySet[i].second);
@@ -425,28 +432,26 @@ void PlotPtRelativeDiff(){
     //Make sure zero is visible:
     yMin = std::min(yMin, 0.0);
     yMax = std::max(yMax, 0.0);
-    frame->SetMinimum(yMin);
-    frame->SetMaximum(yMax);
+    frame->SetMinimum(-0.28);
+    frame->SetMaximum(0.28);
     //
 
     frame->GetXaxis()->SetTickLength(0.0);
     frame->GetXaxis()->SetTitle("Centrality bin");
-    frame->GetYaxis()->SetTitle("#Delta #LT p^{rel}_{T} #GT^{i}");
+    frame->GetYaxis()->SetTitle("#Delta #bar{p_{T}}^{PbPb} - #Delta #bar{p_{T}}^{ppRef}");
     frame->GetYaxis()->CenterTitle(true);
-    frame->GetYaxis()->SetTitleOffset(1.4);
+    frame->GetYaxis()->SetTitleOffset(1.3);
+    frame->GetYaxis()->SetLabelSize(0.03);
 
     //Draw only the axis frame.
     frame->Draw("AXIS");
 
     //Format graph.
-    graph->SetMarkerStyle(21);
+    graph->SetMarkerStyle(20);
     graph->SetMarkerSize(0.9);
     graph->SetMarkerColorAlpha(kRed+1, 1.);
     graph->SetLineColorAlpha(kRed-7, 0.8);
     graph->SetLineWidth(2);
-
-    //Draw graph on top of frame.
-    graph->Draw("P SAME");
 
     //Grey line at y=0
     TLine* line = new TLine(0.5, 0.0, 0.5+nPoints, 0.0);
@@ -455,25 +460,50 @@ void PlotPtRelativeDiff(){
     line->SetLineWidth(2);
     line->Draw();
 
-    drawLatexText("#bf{CMS}", 0.14, 0.93, 0.04);
-    drawLatexText("#it{Internal}", 0.21, 0.93, 0.03);
+    //Also plot ppRef line for reference.
+    TLine* ppRefLine = new TLine(0.5, ppRefMean[0].first, 0.5+nPoints, ppRefMean[0].first);
+    ppRefLine->SetLineColor(kCyan-3);
+    ppRefLine->SetLineStyle(1);
+    ppRefLine->SetLineWidth(2);
+    ppRefLine->Draw();
+    //Draw the uncertainties also as a TBox
+    TBox* ppRefBand = new TBox(0.5, ppRefMean[0].first - ppRefMean[0].second, 0.5+nPoints, ppRefMean[0].first + ppRefMean[0].second);
+    ppRefBand->SetFillStyle(1001);
+    ppRefBand->SetFillColorAlpha(kCyan-3, 0.25);
+    ppRefBand->SetLineWidth(0);
+    ppRefBand->Draw();
+
+    //Draw graph points for last.
+    graph->Draw("P SAME");
+
+    TLegend* legend = new TLegend(0.71, 0.8, 0.88, 0.9);
+    basicLegendFormatting(legend);
+    legend->AddEntry(graph, "PbPb 2023-2026", "p");
+    legend->AddEntry(ppRefLine, "ppRef 2024", "l");
+    legend->Draw();
+
+    drawLatexText("#bf{CMS}", 0.13, 0.93, 0.042);
+    drawLatexText("#it{Internal}", 0.2, 0.93, 0.034);
     drawLatexText(dataSamplesUsed.c_str(), 0.55, 0.93, 0.03);
     
     //Plot specifications
-    drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.2, 0.82, 0.03);
-    drawLatexText("60 < M_{#mu#mu} < 120 GeV", 0.2, 0.77, 0.03);
+    drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.2, 0.85, 0.03);
+    drawLatexText("60 < M_{#mu#mu} < 120 GeV", 0.2, 0.8, 0.03);
 
     c->Update();
-    std::string outputName = "DeltaPtRelDiff_vs_Centrality_FROMTREE" + plot_extension;
+    std::string outputName = "MeanDiff_vs_Centrality_FromTree" + plot_extension;
     c->SaveAs(outputName.c_str());
 
+    delete ppRefLine;
+    delete ppRefBand;
     delete frame;
     delete line;
     delete graph;
     delete c;
 }
 
-void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double highCent, std::vector<double>& ptRelDiffValues) {
+
+void FillPtHistograms(const Dataset& dataset, double lowCent, double highCent, TH1D* h_MuPl, TH1D* h_MuMi) {
 
     // Load root file.
     std::string fullPath = dataset.basePath + dataset.filePattern;
@@ -481,7 +511,7 @@ void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double high
     TChain *chain = new TChain(dataset.treeName.c_str());
     chain->Add(fullPath.c_str());
 
-    std::cout << "> Number of files = " << chain->GetListOfFiles()->GetEntries() << "\n" << std::endl;
+    std::cout << "> Number of files added to TChain = " << chain->GetListOfFiles()->GetEntries() << "\n" << std::endl;
     std::cout << "> Opening files " << fullPath << "\n" << std::endl;
     std::cout << "> Running function " << __func__ << " on " << dataset.name << "\n" << std::endl;
     
@@ -564,25 +594,17 @@ void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double high
     chain->SetBranchAddress("Reco_Muon_isTightCutBased", Reco_Muon_isTightCutBased);
 
 
-    //Event-level cut values.
-    double maxZvtx = MAX_ZVTX;
+    //dN/dpT histograms for MuPl and MuMi.
+    //TH1D* h_MuPl = new TH1D("h_MuPl", "Muon Plus pT; pT [GeV]; Entries", 100, 0., 100.);
+    //TH1D* h_MuMi = new TH1D("h_MuMi", "Muon Minus pT; pT [GeV]; Entries", 100, 0., 100.);
 
-    //Z-level cut values.
-    double minZ_Mass = MINZ_MASS; 
-    double maxZ_Mass = MAXZ_MASS; 
-    double RapidityCutValue = RAPIDITYCUTVALUE;
 
-    //Muon-level cut values.
-    float EtaCutValue = ETACUTVALUE;
-    double ptCutValue = PTCUTVALUE;
-    bool MuPlIsTight;
-    bool MuMiIsTight;
-
-    //Observables
-    TLorentzVector Z;
+    //Muon-level selection variables
     double ptplus, ptminus;
     double etaplus, etaminus;
-
+    bool MuPlIsTight;
+    bool MuMiIsTight;
+    
     //Centrality interval passed as argument to the function.
     float minCentrality = 2.*lowCent;
     float maxCentrality = 2.*highCent;
@@ -608,7 +630,7 @@ void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double high
             //Good Z selection
             bool goodMass = (Reco_Dimuon_invMass->at(j) > minZ_Mass && Reco_Dimuon_invMass->at(j) < maxZ_Mass);
             bool goodRapidity = (std::abs(Reco_Dimuon_rapidity->at(j)) < RapidityCutValue);
-            bool goodCharge = (Reco_Dimuon_sign[j] == 0);
+            bool goodCharge = (Reco_Dimuon_sign[j] == 0); //Opposite sign muons.
             bool goodVtxProb = (Reco_Dimuon_vtxProb[j] > 0.001); //Vertex probability cut of .1% for dimuon candidates.
             bool isTriggerMatched = true;
 
@@ -645,9 +667,10 @@ void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double high
             if (!goodMuPl || !goodMuMi) continue;
             //End of good selection for dimuon candidate j of event i.
             
-            //Store the PtRelDiff value.
-            ptRelDiffValues.push_back(Reco_Dimuon_muonPtRelDiff->at(j));
-        
+            //Fill each histogram with respective muon pT.
+            h_MuPl->Fill(ptplus);
+            h_MuMi->Fill(ptminus);
+
         }//End of dimuon candidate loop.
 
 
@@ -665,82 +688,61 @@ void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double high
 
     }//Exiting event-by-event loop.
 
+    //Check the n of dimuons for this centrality bin
+    std::cout << "\n> Number of dimuons in centrality bin " << lowCent << "-" << highCent << "%: " << h_MuPl->GetEntries() << std::endl;
 
     delete chain;
 }
 
 
-void FillResultStructFromVector(bool hasCentrality, double lowCent, double highCent, const std::vector<double>& ptRelDiffValues){
+void GetMeanAndPeakDifference(const Dataset& dataset, TH1D* h_MuPl, TH1D* h_MuMi){
+
+    //pT(mu+) statistics
+    //Mean and error
+    double MuPl_mean = h_MuPl->GetMean();
+    double MuPl_meanError = h_MuPl->GetMeanError();
+
+    //Variance and RMS
+    double MuPl_variance = h_MuPl->GetStdDev();
+    double MuPl_RMS = h_MuPl->GetRMS();
+
+    //Peak and "error" (bin width)
+    double MuPl_peak = h_MuPl->GetBinCenter(h_MuPl->GetMaximumBin());
+    double MuPl_peakError = h_MuPl->GetBinWidth(h_MuPl->GetMaximumBin());
+
+    //pT(mu-) statistics
+    //Mean and error
+    double MuMi_mean = h_MuMi->GetMean();
+    double MuMi_meanError = h_MuMi->GetMeanError();
+
+    //Variance and RMS
+    double MuMi_variance = h_MuMi->GetStdDev();
+    double MuMi_RMS = h_MuMi->GetRMS();
+
+    //Peak and "error" (bin width)
+    double MuMi_peak = h_MuMi->GetBinCenter(h_MuMi->GetMaximumBin());
+    double MuMi_peakError = h_MuMi->GetBinWidth(h_MuMi->GetMaximumBin());
     
-    //Get statistics from the vector of PtRelDiff values.
-    auto [n, mean, meanError, variance, skewness, skewnessError] = GetStatistics(ptRelDiffValues);
+    //Calculate mean difference and error
+    double meanDifference = MuPl_mean - MuMi_mean;
+    double meanDifferenceError = std::sqrt(std::abs(MuPl_meanError * MuPl_meanError - MuMi_meanError * MuMi_meanError));
 
-    PtRelDiffResult result;
-    if(hasCentrality) {
-        //Centrality to string
-        std::string centString = std::to_string(static_cast<int>(lowCent)) + "-" + std::to_string(static_cast<int>(highCent));
+    //**Nothing** with variance and RMS for now.
 
-        result.centralityBinStr = centString;
-        result.Zcount = n;
-        result.mean = mean;
-        result.meanError = meanError;
-        result.variance = variance;
-        result.skewness = skewness;
-        result.skewnessError = skewnessError;
+    //Peak difference and error
+    double peakDifference = MuPl_peak - MuMi_peak;
+    double peakDifferenceError = std::sqrt(std::abs(MuPl_peakError * MuPl_peakError - MuMi_peakError * MuMi_peakError));
 
-        PbPbResults.push_back(result);
+
+    //Save results in respective vectors.
+    if(dataset.hasCentrality) { //PbPb datasets
+        PbPbMean.push_back(std::make_pair(meanDifference, meanDifferenceError));
+        PbPbPeak.push_back(std::make_pair(peakDifference, peakDifferenceError));
     }
 
-    else {
-        //Store ppRef results on its own vector.
-        std::string dummyString = "ppRef";
-
-        result.centralityBinStr = dummyString;
-        result.Zcount = n;
-        result.mean = mean;
-        result.meanError = meanError;
-        result.variance = variance;
-        result.skewness = skewness;
-        result.skewnessError = skewnessError;
-
-        ppRefResults.push_back(result);
-    }
-}
-
-std::tuple<Long64_t, double, double, double, double, double> GetStatistics(const std::vector<double>& values) {
-
-    const Long64_t n = values.size();
-
-    double mean = 0.0;
-    for(double x : values)
-    {
-        mean += x;
-    }
-    mean = mean/static_cast<double>(n);
-
-
-    double M2 = 0.0;
-    double M3 = 0.0;
-    for(double x : values){
-
-        double delta = x - mean;
-        M2 += delta * delta;//Central moment of order 2 (variance).
-        M3 += delta * delta * delta;//Central moment of order 3 (skewness).
+    else if(dataset.system == CollisionSystem::ppRef){ //ppRef.
+        ppRefMean.push_back(std::make_pair(meanDifference, meanDifferenceError));
+        ppRefPeak.push_back(std::make_pair(peakDifference, peakDifferenceError));
     }
 
-    double variance = M2/static_cast<double>(n-1);
-    //The variance error depends on the fourth central moment, which we are not calculating here. For now, we will NOT calculate the variance error.
-
-    //The calculation of skewness is a bit complicated.
-    //It is defined as
-    // g1 = sqrt(n) * M3 / M2^(3/2)
-    //For now im calculating the skewness error in the same way as ROOT.
-    //However this is a simplification of the calculation and if we decide to keep calculating the skewness
-    //in the future we can think of a better way to estimate its error.
-    double skewness = std::sqrt(static_cast<double>(n))*M3/std::pow(M2, 1.5);
-    double skewnessError = std::sqrt(6.0 / static_cast<double>(n));
-
-    double meanError = std::sqrt(variance/static_cast<double>(n));//Std dev. = sqrt(variance), Std dev. of the mean = std dev./sqrt(n).
-
-    return std::make_tuple(n, mean, meanError, variance, skewness, skewnessError);
 }

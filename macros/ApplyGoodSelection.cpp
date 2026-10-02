@@ -61,6 +61,7 @@ const double ptCutValue = 20.;
 // ##############################################################################
 // ##############################################################################
 
+
 //---Enumerates
 enum class SampleType {
     Data,
@@ -218,9 +219,7 @@ void makeGoodSelection(const Dataset& dataset, TFile* outputFile){
     chain->Add(fullPath.c_str());
 
     std::cout << "\n> Number of files added to TChain = " << chain->GetListOfFiles()->GetEntries() << "\n" << std::endl;
-
     std::cout << "> Opening files " << fullPath << "\n" << std::endl;
-
     std::cout << "> Running function " << __func__ << " on " << dataset.name << "\n" << std::endl;
     
     //Total number of events on Tree.

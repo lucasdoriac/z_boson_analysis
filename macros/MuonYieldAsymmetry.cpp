@@ -1,6 +1,7 @@
 /*
 A = (N_{mu+} - N_{mu-}) / (N_{mu+} + N_{mu-}).
 From 'mySelectedData.root'.
+Final 'observable' is just the mean of y-coordinate of the A TGraph in the range 40 < pT < 65 GeV.
 */
 
 
@@ -32,9 +33,9 @@ From 'mySelectedData.root'.
 
 //---Macro settings
 std::string plot_extension = ".pdf"; // ".png" for regular development and ".pdf" for final quality plots
-std::string whichDataset = "PbPb2023_2024_Data"; // "PbPb2023_2024_Data", "PbPb2023_Data", "PbPb2024_Data". 
-std::string JointPbPb = "PbPb2023+2024"; //"PbPb2023+2024", "PbPb2023", "PbPb2024".
-std::string dataSamplesUsed = "PbPb 2023+2024, ppRef 2024 (5.36 TeV)";
+std::string whichDataset = "PbPb_Run3_Data"; // "PbPb2023_2024_Data", "PbPb2023_Data", "PbPb2024_Data". 
+std::string JointPbPb = "PbPb2023-2026"; //"PbPb2023+2024", "PbPb2023", "PbPb2024".
+std::string dataSamplesUsed = "PbPb 2023-2026, ppRef 2024 (5.36 TeV)";
 double delta = 1e-6; //Small value to avoid binning issues when projecting histograms.
 
 double rho = 1.0; //Correlation coefficient for error propagation in asymmetry calculation.
@@ -46,7 +47,6 @@ double fitMax = 65.; //Maximum x-value for the fit range of the asymmetry histog
 // ##############################################################################
 
 
-
 //Set of centrality bins for PbPb2024 data. We can decide to change the centrality bins later if we want to.
 std::vector<std::pair<double, double>> CentralityBinsSet = {
     {0., 10.},
@@ -55,6 +55,7 @@ std::vector<std::pair<double, double>> CentralityBinsSet = {
     {30., 100.},
     {0., 100.}
 };
+
 
 //Second proposed set of centrality bins for PbPb2024 data.
 /*std::vector<std::pair<double, double>> CentralityBinsSet = {
@@ -65,8 +66,10 @@ std::vector<std::pair<double, double>> CentralityBinsSet = {
     {0., 100.}
 };*/
 
+
 //Vector of histograms
 std::vector<TH1D*> AsymmetryHists;
+
 
 //Vectors to store the mean asymmetry and its error for each centrality bin.
 std::vector<double> meanAsymmetryValues;
@@ -78,11 +81,15 @@ void MakeAsymmetryHist_PbPb(TFile* inputFile, double lowCent, double highCent);
 void PlotAsymmetryHists();
 void PlotAsymmetry_vs_Centrality();
 
+
 //---Main()
 void MuonYieldAsymmetry(){
 
-    //Clear vector
+    //Clear vectors
     AsymmetryHists.clear();
+    meanAsymmetryValues.clear();
+    meanAsymmetryErrors.clear();
+
 
     gROOT->SetBatch(kTRUE);
     TFile* inputFile = new TFile("mySelectedData.root", "READ");

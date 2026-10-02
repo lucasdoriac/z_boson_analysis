@@ -1,6 +1,6 @@
 /*
-Mini macro to plot pT(\mu+) and pT(\mu-) in top pad.
-Ratio of N(\mu+)/N(\mu-) per pT bin in bottom pad.
+dN/dpT(\mu+) and dN/dpT(\mu-) in top pad.
+Ratio of N(\mu+)/N(\mu-) for each pT bin in bottom pad.
 */
 
 //---Libraries
@@ -31,23 +31,147 @@ Ratio of N(\mu+)/N(\mu-) per pT bin in bottom pad.
 
 //---Macro settings
 std::string plot_extension = ".pdf"; // ".png" for regular development and ".pdf" for final quality plots
-std::string whichDataset = "PbPb_Run3_Data"; // "PbPb_Run3_Data", "PbPb2023_Data", "PbPb2024_Data".
+std::string whichDataset = "PbPb2023_2024_Data"; // "PbPb2023_2024_Data", "PbPb2023_Data", "PbPb2024_Data".
 std::string JointPbPb = "PbPb2023+2024"; //"PbPb2023+2024", "PbPb2023", "PbPb2024".
 std::string dataSamplesUsed = "PbPb 2023+2024, ppRef 2024 (5.36 TeV)"; //"PbPb 2023+2024, ppRef 2024 (5.36 TeV)", "PbPb 2023, ppRef 2024 (5.36 TeV)", "PbPb 2024, ppRef 2024 (5.36 TeV)".
 double delta = 1e-6; //Small value to avoid binning issues when projecting histograms.
 
 
-double MINZ_MASS = 60.;
-double MAXZ_MASS = 120.;
+//Good Selection values
+const double maxZvtx = 15.0;
 
-double RAPIDITYCUTVALUE = 2.4;
+const double minZ_Mass = 60.;
+const double maxZ_Mass = 120.;
+const double RapidityCutValue = 2.4;
 
-double ETACUTVALUE = 2.4;
-double PTCUTVALUE = 20.;
+const double EtaCutValue = 2.4;
+const double ptCutValue = 20.;
 
 
 // ##############################################################################
 // ##############################################################################
+
+
+//---Enumerates
+enum class SampleType {
+    Data,
+    MC
+};
+
+enum class CollisionSystem {
+    ppRef,
+    PbPb
+};
+
+//---Structs
+struct Dataset {
+    std::string name;
+    SampleType type;
+    CollisionSystem system;
+    int year;
+    std::string treeName;
+    std::string filePattern;
+    std::string basePath;
+
+    bool hasCentrality;//Or maybe is AA
+    bool applyTrigger;
+    ULong64_t triggerBit;
+};
+
+Dataset datasets[] = {
+    
+    {
+        "ppRef2024_Data",
+        SampleType::Data,
+        CollisionSystem::ppRef,
+        2024,
+        "hionia/DimuonTree",
+        "HighPtMuons_HLTL2SingleMu_ppRef2024.root",
+        BasePath + "Data/ppRef2024/",
+        false,
+        false,
+        0ULL
+    },
+    
+    {
+        "PbPb2023_Data",
+        SampleType::Data,
+        CollisionSystem::PbPb,
+        2023,
+        "hionia/DimuonTree",
+        "HighPtMuons_HLTL2SingleMu_PbPb2023.root",
+        BasePath + "Data/PbPb2023/",
+        true,
+        true,
+        1ULL << 6 //'HLT_HIL2SingleMu7_v'
+    },
+
+    {
+        "PbPb2024_Data",
+        SampleType::Data,
+        CollisionSystem::PbPb,
+        2024,
+        "hionia/DimuonTree",
+        "HighPtMuons_HLTL2SingleMu_PbPb2024Data.root",
+        BasePath + "Data/PbPb2024/",
+        true,
+        true,
+        1ULL << 7 //'HLT_HIL2SingleMu12_v'
+    },
+
+    {
+        "PbPb2025_Data",
+        SampleType::Data,
+        CollisionSystem::PbPb,
+        2025,
+        "hionia/DimuonTree",
+        "HighPtMuon_PbPb2025Data.root",
+        BasePath + "Data/PbPb2025/",
+        true,
+        true,
+        1ULL << 7 //'HLT_HIL2SingleMu12_v'
+    },
+
+    {
+        "PbPb2026_Data",
+        SampleType::Data,
+        CollisionSystem::PbPb,
+        2026,
+        "hionia/DimuonTree",
+        "HighPtMuon_PbPb2026Data.root",
+        BasePath + "Data/PbPb2026/",
+        true,
+        true,
+        1ULL << 7 //'HLT_HIL2SingleMu12_v'
+    },
+
+    {
+        "PbPb2024_MC",
+        SampleType::MC,
+        CollisionSystem::PbPb,
+        2024,
+        "hionia/myTree",
+        "Oniatree_PowhegZtoMuMu_PbPb2024_*.root",
+        BasePath + "MC/PbPb2024/DYto2Mu_MLL-50_TuneCP5_5p36TeV_powheg-pythia8/PowhegEmbedded_March9/260309_143939/0000/",
+        false,
+        false,
+        0ULL
+    },
+
+    {
+        "ppRef2024_MC",
+        SampleType::MC,
+        CollisionSystem::ppRef,
+        2024,
+        "hionia/myTree",
+        "Oniatree_PowhegZtoMuMu_ppRef2024_*.root",
+        BasePath + "MC/ppRef2024/DYToMuMu_M-50_TuneCP5_5p36TeV_powheg-pythia8/Powheg_ppRefPileup_March20/260320_125046/0000/",
+        false,
+        false,
+        0ULL
+    }
+};
+
 
 
 //Set of centrality bins for PbPb2024 data.
@@ -59,6 +183,7 @@ std::vector<std::pair<double, double>> CentralityBinsSet = {
     {0., 100.}
 };
 
+
 //Second proposed set of centrality bins for PbPb2024 data.
 /*std::vector<std::pair<double, double>> CentralityBinsSet = {
     {0., 10.},
@@ -67,272 +192,225 @@ std::vector<std::pair<double, double>> CentralityBinsSet = {
     {50., 100.},
     {0., 100.}
 };*/
-//
 
-void MuonPtMuPlMuMiHistWithSingleRatio(TFile* inputFile, std::string datasetName, double lowCent = 0., double highCent = 100.);
-std::tuple<int, double, double> MakeChi2Test(const TH1D* hist);
 
+
+//---Function declarations;
+
+
+//---Main()
 void MuonYieldPtWithRatio(){
 
     gROOT->SetBatch(kTRUE);
-    TFile* inputFile = new TFile("mySelectedData.root", "READ");
 
-    for(const auto& cBin : CentralityBinsSet){
-        double lowCent = cBin.first;
-        double highCent = cBin.second;
-        std::cout << "> Processing centrality bin: " << lowCent << " - " << highCent << std::endl;
-
-        MuonPtMuPlMuMiHistWithSingleRatio(inputFile, whichDataset, lowCent, highCent); //PbPb2024
-    }
     
-    MuonPtMuPlMuMiHistWithSingleRatio(inputFile, "ppRef2024_Data", 0., 100.); //ppRef2024
-    inputFile->Close();
+    //One histogram for each distribution: dN/dpT(mu+) and dN/dpT(mu-)
+    TH1D* h1D_PtMuPl = new TH1D("h1D_PtMuPl", "Muon Plus pT; pT [GeV]; Entries", 200, 0., 200.);
+    TH1D* h1D_PtMuMi = new TH1D("h1D_PtMuMi", "Muon Minus pT; pT [GeV]; Entries", 200, 0., 200.);
+
+    //For PbPb datasets loop over centrality bins. 
+    for(const auto& cBin : CentralitySet){
+
+        //Clear histograms before each centrality call..
+        h1D_PtMuPl->Reset();
+        h1D_PtMuMi->Reset();
+
+        std::cout << "\nCalculating Mean Diff for centrality bin: " << cBin.first << "-" << cBin.second << "%\n";
+
+        FillPtHistograms(datasets[1], cBin.first, cBin.second, h1D_PtMuPl, h1D_PtMuMi); //PbPb2023 dataset
+        FillPtHistograms(datasets[2], cBin.first, cBin.second, h1D_PtMuPl, h1D_PtMuMi); //PbPb2024 dataset
+        FillPtHistograms(datasets[3], cBin.first, cBin.second, h1D_PtMuPl, h1D_PtMuMi); //PbPb2025 dataset
+        FillPtHistograms(datasets[4], cBin.first, cBin.second, h1D_PtMuPl, h1D_PtMuMi); //PbPb2026 dataset
+
+    }
+
 }
 
-void MuonPtMuPlMuMiHistWithSingleRatio(TFile* inputFile, std::string datasetName, double lowCent, double highCent){
 
-    //Get directory
-    TDirectory *dir = inputFile->GetDirectory(datasetName.c_str());
+//---Function definitions
+void func(const Dataset& dataset, float lowCent, float highCent){
 
-    //Get histograms
-    TH1D* h_ogpl = nullptr;
-    TH1D* h_ogmi = nullptr;
+    // Load root file.
+    std::string fullPath = dataset.basePath + dataset.filePattern;
 
-    if(datasetName != "ppRef2024_Data"){
-        //For PbPb we want to separate the data into centrality bins.
-        //Thus get the 3D histogram and project it onto a TH2 pT(mu+) vs pT(mu-) for the given centrality range.
-        TH3D* h3D_PtMuPl_PtMuMi_Cent = dynamic_cast<TH3D*>(dir->Get("h3D_PtMuPl_PtMuMi_Cent"));
-        TH3D* h3D_PtMuPl_PtMuMi_Cent_clone = dynamic_cast<TH3D*>(h3D_PtMuPl_PtMuMi_Cent->Clone("h3D_PtMuPl_PtMuMi_Cent_clone"));
-        
-        /*
-        z-axis -> centrality
-        y-axis -> pT of mu-
-        x-axis -> pT of mu+
-        */
+    TChain *chain = new TChain(dataset.treeName.c_str());
+    chain->Add(fullPath.c_str());
 
-        //Select centrality range and project onto pT(mu+) vs pT(mu-) plane.
-        int binLow = h3D_PtMuPl_PtMuMi_Cent_clone->GetZaxis()->FindBin(lowCent + delta);
-        int binHigh = h3D_PtMuPl_PtMuMi_Cent_clone->GetZaxis()->FindBin(highCent - delta);
-        std::cout << "> Project in centrality range: " << lowCent << " - " << highCent << std::endl;
-        h3D_PtMuPl_PtMuMi_Cent_clone->GetZaxis()->SetRange(binLow, binHigh);
-        TH2D* h2D_PtMuPl_PtMuMi = dynamic_cast<TH2D*>(h3D_PtMuPl_PtMuMi_Cent_clone->Project3D("yx"));
+    std::cout << "> Number of files added to TChain = " << chain->GetListOfFiles()->GetEntries() << "\n" << std::endl;
+    std::cout << "> Opening files " << fullPath << "\n" << std::endl;
+    std::cout << "> Running function " << __func__ << " on " << dataset.name << "\n" << std::endl;
+    
+    //Total number of events on Tree.
+    Long64_t nEvents = chain->GetEntries();
 
-        h_ogpl = h2D_PtMuPl_PtMuMi->ProjectionX("h_ogpl",1,h2D_PtMuPl_PtMuMi->GetNbinsY(),"e");
-        h_ogmi = h2D_PtMuPl_PtMuMi->ProjectionY("h_ogmi",1,h2D_PtMuPl_PtMuMi->GetNbinsX(),"e");
+    const int MAX_DIMUON = 1000;
+    const int MAX_MUON   = 1000;
 
-        //Check n of candidates in the given centrality range.
-        double nCandidates = h_ogpl->Integral();
-        std::cout << "> n of candidates: " << nCandidates << std::endl;
+    //For now, writing ONLY branches that are relevant to the observable we want to measure.
+
+    //Event-level variables
+    Int_t Centrality;
+    Float_t  zVtx;
+
+    chain->SetBranchAddress("zVtx", &zVtx);
+
+    if(dataset.hasCentrality) {//PbPb2023, PbPb2024.
+        chain->SetBranchAddress("Centrality", &Centrality);
     }
 
-    else if(datasetName == "ppRef2024_Data"){
-        //For ppRef2024, we have individual histograms for mu+ and mu-.
-        h_ogpl = dynamic_cast<TH1D*>(dir->Get("h1D_ptMuPlus"));
-        h_ogmi = dynamic_cast<TH1D*>(dir->Get("h1D_ptMuMinus"));
-    }
+    //Dimuon-level variables
+    Short_t Reco_Dimuon_size;
 
-    //Clone histograms
-    TH1D* h_PtMuPl = dynamic_cast<TH1D*>(h_ogpl->Clone("h_PtMuPl"));
-    TH1D* h_PtMuMi = dynamic_cast<TH1D*>(h_ogmi->Clone("h_PtMuMi"));
+    Short_t Reco_Dimuon_sign[MAX_DIMUON];
+    Short_t Reco_Dimuon_muonPlusIndex[MAX_DIMUON];
+    Short_t Reco_Dimuon_muonMinusIndex[MAX_DIMUON];
 
-    //PbPb2024 canvas
-    TCanvas *c = new TCanvas("c", "c", 800, 800);
-    TPad *pad1 = new TPad("pad1", "pad1", 0, 0.30, 1, 1.0);
-    TPad *pad2 = new TPad("pad2", "pad2", 0, 0.00, 1, 0.30);
-    basicPaddedCanvasFormatting(c, pad1, pad2);
-    pad1->Draw();
-    pad2->Draw();
+    ULong64_t Reco_Dimuon_trig[MAX_DIMUON];
+    Float_t Reco_Dimuon_vtxProb[MAX_DIMUON];
 
-    //Top pad. pT distributions of mu+ and mu-.
-    pad1->cd();
-    basicPaddedHistFormatting(h_PtMuPl, false);
-    basicPaddedHistFormatting(h_PtMuMi, false);
+    std::vector<float>* Reco_Dimuon_pt = nullptr;
+    std::vector<float>* Reco_Dimuon_eta = nullptr;
+    std::vector<float>* Reco_Dimuon_rapidity = nullptr;
+    std::vector<float>* Reco_Dimuon_phi = nullptr;
+    std::vector<float>* Reco_Dimuon_invMass = nullptr;
 
-    h_PtMuPl->SetFillStyle(0);
-    h_PtMuPl->SetLineWidth(1);
-    h_PtMuPl->SetLineColorAlpha(kRed-7, 0.8);
-    h_PtMuPl->SetMarkerStyle(20);
-    h_PtMuPl->SetMarkerSize(0.5);
-    h_PtMuPl->SetMarkerColorAlpha(kRed+1, 1.);
+    std::vector<float>* Reco_Dimuon_muonPtDiff = nullptr;
+    std::vector<float>* Reco_Dimuon_muonPtRelDiff = nullptr;
 
-    h_PtMuMi->SetFillStyle(0);
-    h_PtMuMi->SetLineWidth(1);
-    h_PtMuMi->SetLineColorAlpha(kBlue-7, 0.8);
-    h_PtMuMi->SetMarkerStyle(20);
-    h_PtMuMi->SetMarkerSize(0.5);
-    h_PtMuMi->SetMarkerColorAlpha(kBlue+1, 1.);
+    chain->SetBranchAddress("Reco_Dimuon_size", &Reco_Dimuon_size);
 
-    h_PtMuPl->GetXaxis()->SetTitle("p_{T} [GeV/c]");
-    h_PtMuPl->GetYaxis()->SetTitle("N of muons [GeV/c]^{-1}");
-    h_PtMuPl->GetXaxis()->SetRangeUser(18., 100.);
-    h_PtMuPl->GetYaxis()->SetTitleOffset(1.);
+    chain->SetBranchAddress("Reco_Dimuon_sign", Reco_Dimuon_sign);
+    chain->SetBranchAddress("Reco_Dimuon_muonPlusIndex", Reco_Dimuon_muonPlusIndex);
+    chain->SetBranchAddress("Reco_Dimuon_muonMinusIndex", Reco_Dimuon_muonMinusIndex);
 
-    h_PtMuPl->Draw("E1");
-    h_PtMuMi->Draw("E1 SAME");
+    chain->SetBranchAddress("Reco_Dimuon_trig", Reco_Dimuon_trig);
+    chain->SetBranchAddress("Reco_Dimuon_vtxProb", Reco_Dimuon_vtxProb);
 
-    //Filling histogram. No border.
-    auto* fillPl = static_cast<TH1*>(h_PtMuPl->Clone("h_fill"));
-    fillPl->SetDirectory(nullptr);
-    fillPl->SetFillStyle(1001);
-    fillPl->SetFillColorAlpha(kRed-10, 0.55);
-    fillPl->SetLineColorAlpha(kRed-10, 0.0);
-    fillPl->Draw("HIST ][ SAME");
+    chain->SetBranchAddress("Reco_Dimuon_pt", &Reco_Dimuon_pt);
+    chain->SetBranchAddress("Reco_Dimuon_eta", &Reco_Dimuon_eta);
+    chain->SetBranchAddress("Reco_Dimuon_rapidity", &Reco_Dimuon_rapidity);
+    chain->SetBranchAddress("Reco_Dimuon_phi", &Reco_Dimuon_phi);
+    chain->SetBranchAddress("Reco_Dimuon_invMass", &Reco_Dimuon_invMass);
 
-    auto* fillMi = static_cast<TH1*>(h_PtMuMi->Clone("h_fill"));
-    fillMi->SetDirectory(nullptr);
-    fillMi->SetFillStyle(1001);
-    fillMi->SetFillColorAlpha(kBlue-10, 0.5);
-    fillMi->SetLineColorAlpha(kBlue-10, 0.0);
-    fillMi->Draw("HIST ][ SAME");
+    chain->SetBranchAddress("Reco_Dimuon_muonPtDiff", &Reco_Dimuon_muonPtDiff);
+    chain->SetBranchAddress("Reco_Dimuon_muonPtRelDiff", &Reco_Dimuon_muonPtRelDiff);
 
-    //Calculate Z count and its error for the given centrality range.
-    double Zcount = 0.0;
-    double ZcountError = 0.0;
-    for(int i = 1; i <= h_PtMuPl->GetNbinsX(); ++i){
-        Zcount += h_PtMuPl->GetBinContent(i);
-        ZcountError += std::pow(h_PtMuPl->GetBinError(i), 2);
-    }
-    //ZcountError = std::sqrt(ZcountError);
-    Zcount = h_PtMuPl->IntegralAndError(1, h_PtMuPl->GetNbinsX(), ZcountError);
-    //Add Z count and error on the plot
-    drawLatexText(Form("Z count: %.0f #pm %.0f", Zcount, ZcountError), 0.7, 0.35, 0.03);
+    //Muon-level variables
+    Short_t Reco_Muon_size;
 
-    //Selections and cuts
-    drawLatexText(Form("p_{T} > %.0f GeV, |#eta| < %.1f", PTCUTVALUE, ETACUTVALUE), 0.7, 0.3, 0.03);
-    drawLatexText(Form("|y| < %.1f", RAPIDITYCUTVALUE), 0.7, 0.25, 0.03);
-    drawLatexText(Form("%.0f < M_{#mu#mu} < %.0f GeV", MINZ_MASS, MAXZ_MASS), 0.7, 0.2, 0.03);
-    if(datasetName != "ppRef2024_Data") drawLatexText(Form("Centrality: %.0f - %.0f %%", lowCent, highCent), 0.7, 0.15, 0.03);
+    std::vector<float>* Reco_Muon_pt = nullptr;
+    //std::vector<float>* Reco_Muon_ptErrTrk = nullptr; //I think we need to study this branch further.
+    std::vector<float>* Reco_Muon_eta = nullptr;
+    std::vector<float>* Reco_Muon_phi = nullptr;
+    std::vector<float>* Reco_Muon_mass = nullptr;
 
-    TLegend* leg = new TLegend(0.75, 0.75, 0.94, 0.86);
-    basicLegendFormatting(leg);
-    leg->AddEntry(h_PtMuPl, "p_{T}(#mu^{+})", "l");
-    leg->AddEntry(h_PtMuMi, "p_{T}(#mu^{-})", "l");
-    leg->Draw();
-    pad1->Update();
+    ULong64_t Reco_Muon_trig[MAX_MUON];
+    Bool_t Reco_Muon_isTightCutBased[MAX_MUON];
+    
+    chain->SetBranchAddress("Reco_Muon_size", &Reco_Muon_size);
 
-    //Bottom pad. Ratio of pT distributions of mu+ and mu-.
-    pad2->cd();
+    chain->SetBranchAddress("Reco_Muon_pt", &Reco_Muon_pt);
+    //chain->SetBranchAddress("Reco_Muon_ptErrTrk", &Reco_Muon_ptErrTrk);
+    chain->SetBranchAddress("Reco_Muon_eta", &Reco_Muon_eta);
+    chain->SetBranchAddress("Reco_Muon_phi", &Reco_Muon_phi);
+    chain->SetBranchAddress("Reco_Muon_mass", &Reco_Muon_mass);
 
-    TH1D* histRatio = new TH1D("histRatio", "histRatio", h_PtMuPl->GetNbinsX(), h_PtMuPl->GetXaxis()->GetXmin(), h_PtMuPl->GetXaxis()->GetXmax());
-    //histRatio->Divide(h_PtMuPl, h_PtMuMi, 1.0, 1.0, "B");//Old histRatio definition. Binomial error propagation.
+    chain->SetBranchAddress("Reco_Muon_trig", Reco_Muon_trig);
+    chain->SetBranchAddress("Reco_Muon_isTightCutBased", Reco_Muon_isTightCutBased);
 
-    int ptfirstbin = histRatio->FindBin(PTCUTVALUE + delta);
-    //Calculate the ratio and its error for each bin, taking into account the COMPLETE correlation between the two histograms.
-    for(int i = ptfirstbin; i <= h_PtMuPl->GetNbinsX(); ++i){
 
-        double Nplus  = h_PtMuPl->GetBinContent(i);
-        double Nminus = h_PtMuMi->GetBinContent(i);
+    //Muon-level selection variables
+    double ptplus, ptminus;
+    double etaplus, etaminus;
+    bool MuPlIsTight;
+    bool MuMiIsTight;
+    
+    //Centrality interval passed as argument to the function.
+    float minCentrality = 2.*lowCent;
+    float maxCentrality = 2.*highCent;
+    //
 
-        double sigmaPlus  = h_PtMuPl->GetBinError(i);
-        double sigmaMinus = h_PtMuMi->GetBinError(i);
+    for(Long64_t i = 0; i < nEvents; ++i){//Loop through all EVENTS in the CHAIN.
 
-        if(Nminus <= 0.0 || Nplus <= 0.0){
-            std::cout << "Warning: zero content in bin " << i << std::endl;
-            histRatio->SetBinContent(i, 0.0);
-            histRatio->SetBinError(i, 0.0);
-            continue;
+        chain->GetEntry(i); //Get event i.
+
+        //Good event selection
+        bool goodVertex = (std::abs(zVtx) < maxZvtx);
+        bool goodCent = true;
+
+        if (dataset.hasCentrality) {
+            goodCent = (Centrality >= minCentrality && Centrality < maxCentrality);
         }
 
-        double ratio = Nplus / Nminus;
-        //Statistical uncertainty assuming COMPLETE correlation between the two histograms.
-        double ratioError_completeCorr = ratio * std::abs(sigmaPlus/Nplus - sigmaMinus/Nminus);
+        if (!goodVertex) continue;
+        if (!goodCent) continue;
 
-        histRatio->SetBinContent(i, ratio);
-        histRatio->SetBinError(i, ratioError_completeCorr);
-    }
+        for(Short_t j = 0; j < Reco_Dimuon_size; ++j){ //Loop through all reco dimuon candidates of event i.
+            
+            //Good Z selection
+            bool goodMass = (Reco_Dimuon_invMass->at(j) > minZ_Mass && Reco_Dimuon_invMass->at(j) < maxZ_Mass);
+            bool goodRapidity = (std::abs(Reco_Dimuon_rapidity->at(j)) < RapidityCutValue);
+            bool goodCharge = (Reco_Dimuon_sign[j] == 0); //Opposite sign muons.
+            bool goodVtxProb = (Reco_Dimuon_vtxProb[j] > 0.001); //Vertex probability cut of .1% for dimuon candidates.
+            bool isTriggerMatched = true;
 
-    basicPaddedHistFormatting(histRatio, true);
-    
-    histRatio->SetMarkerStyle(24);
-    histRatio->SetMarkerSize(0.8);
-    histRatio->SetMarkerColor(kBlack);
-    histRatio->SetLineColor(kBlack);
+                if (dataset.applyTrigger) {
+                    //**At least** one of the daughter muons must be matched to the trigger.
+                    isTriggerMatched = (Reco_Dimuon_trig[j] & dataset.triggerBit);//Corresponding triggerBit to that dataset.
+                }
 
-    histRatio->GetYaxis()->SetTitle("Ratio");
-    histRatio->GetXaxis()->SetTitle("p_{T} [GeV]");
-    histRatio->GetXaxis()->SetRangeUser(18., 100.);
-    histRatio->GetYaxis()->SetRangeUser(0., 2.);
+            if (!goodMass) continue;
+            if (!goodRapidity) continue;
+            if (!goodCharge) continue;
+            if (!goodVtxProb) continue;
+            if (!isTriggerMatched) continue;
 
-    histRatio->Draw("P");
+            //Good muon selection
+            Short_t muonPlusIndex = Reco_Dimuon_muonPlusIndex[j]; //Index of antimuon in the reco muon arrays.
+            Short_t muonMinusIndex = Reco_Dimuon_muonMinusIndex[j]; //Index of corresponding muon in the reco muon arrays.
 
-    //A horizontal line to represent the null hypothesis of no difference between mu+ and mu- pT distributions.
-    TLine *line = new TLine(18., 1.0, histRatio->GetXaxis()->GetXmax(), 1.0);
-    line->SetLineColor(kMagenta+2);
-    line->SetLineStyle(2);
-    line->SetLineWidth(1);
-    line->Draw("SAME");
+            ptplus = Reco_Muon_pt->at(muonPlusIndex); //pT of antimuon.
+            ptminus = Reco_Muon_pt->at(muonMinusIndex); //pT of corresponding muon.
+            etaplus = Reco_Muon_eta->at(muonPlusIndex); //Pseudorapidity of antimuon.
+            etaminus = Reco_Muon_eta->at(muonMinusIndex); //Pseudorapidity of corresponding muon.
+            MuPlIsTight = Reco_Muon_isTightCutBased[muonPlusIndex];
+            MuMiIsTight = Reco_Muon_isTightCutBased[muonMinusIndex];
+            
+            bool goodMuPl = (ptplus > ptCutValue && ptplus < 200.)
+                            && (std::abs(etaplus) < EtaCutValue)
+                            && (MuPlIsTight);
 
-    if(datasetName != "ppRef2024_Data"){
-        TLegend *leg2 = new TLegend(0.2, 0.78, 0.32, 0.96);
-        basicLegendFormatting(leg2);
-        leg2->SetTextSize(0.058);
-        leg2->AddEntry(line, "R = 1 (null hypothesis)", "l");
-        leg2->Draw();
-        pad2->Update();
-    }
-    else if(datasetName == "ppRef2024_Data"){
-        TLegend *leg2 = new TLegend(0.15, 0.42, 0.27, 0.6);
-        basicLegendFormatting(leg2);
-        leg2->SetTextSize(0.058);
-        leg2->AddEntry(line, "R = 1 (null hypothesis)", "l");
-        leg2->Draw();
-        pad2->Update();
-    }
+            bool goodMuMi = (ptminus > ptCutValue && ptminus < 200.)
+                            && (std::abs(etaminus) < EtaCutValue)
+                            && (MuMiIsTight);
 
-    //Perform a Chi2 test to see if the double ratio is compatible with 1.
-    auto [ndf, chi2, pValue] = MakeChi2Test(histRatio);
+            if (!goodMuPl || !goodMuMi) continue;
+            //End of good selection for dimuon candidate j of event i.
+            
 
-    //Back to the canvas.
-    c->cd();
-    drawLatexText("#bf{CMS}", 0.11, 0.95, 0.04);
-    drawLatexText("#it{Work in Progress}", 0.2, 0.95, 0.026);
-    if(datasetName != "ppRef2024_Data") drawLatexText(dataSamplesUsed.c_str(), 0.6, 0.95, 0.026);
-    else if(datasetName == "ppRef2024_Data") drawLatexText("ppRef 2024 (5.36 TeV)", 0.7, 0.95, 0.026);
-    drawLatexText(Form("#chi^{2}/ndf = %.2f/%d", chi2, ndf), 0.67, 0.72, 0.022);
-    drawLatexText(Form("p-value = %.2f", pValue), 0.67, 0.69, 0.022);
+            //Fill each histogram with respective muon pT.
+            h1D_PtMuPl->Fill(ptplus);
+            h1D_PtMuMi->Fill(ptminus);
 
-    //Save
-    std::string centString = Form("_Cent%.0f-%.0f", lowCent, highCent);
-    std::string output = datasetName + "_MuonPtMuPlMuMiHistWithSingleRatio" + centString + plot_extension;
-    c->Update();
-    c->SaveAs(output.c_str());
+        }//End of dimuon candidate loop.
 
-    delete h_PtMuPl;
-    delete h_PtMuMi;
-    delete histRatio;
-    delete line;
-    delete c;
-}
 
-std::tuple<int, double, double> MakeChi2Test(const TH1D* hist){
+        //Track progress of event loop.
+        Long64_t progressStep = std::max<Long64_t>(1, nEvents / 100);
+        if (i % progressStep == 0){
 
-    double ptMin = 40.;
-    double ptMax = 65.;
+            int percent = static_cast<int>(100.0 * i / nEvents+0.5);
 
-    TF1* nullHypothesis = new TF1("nullHypothesis","1.",ptMin,ptMax);
+            std::cout << "\r"
+                      << percent
+                      << "% complete..."
+                      << std::flush;
+        }
 
-    double chi2 = hist->Chisquare(nullHypothesis, "R");
+    }//Exiting event-by-event loop.
 
-    int ndf = 0;
-    //Count the number of bins with non-zero content and within the pT range of interest to determine the degrees of freedom.
-    for(int i = 1; i <= hist->GetNbinsX(); ++i){
-        double x = hist->GetBinCenter(i);
-        if(x < ptMin || x > ptMax) continue;
-        if(hist->GetBinContent(i) == 0.) continue;
-        if(hist->GetBinError(i) <= 0.) continue;
-        ndf++;
-    }
+    //Check the n of dimuons for this centrality bin
+    std::cout << "\n> Number of dimuons in centrality bin " << lowCent << "-" << highCent << "%: " << h1D_PtMuPl->GetEntries() << std::endl;
 
-    //Calculate the p-value from the Chi2 and ndf.
-    double pValue = TMath::Prob(chi2, ndf);
-    
-    std::cout
-    << "Null hypothesis: R = 1" << std::endl
-    << "chi2 = " << chi2 << std::endl
-    << "ndf = " << ndf << std::endl
-    << "chi2/ndf = " << chi2 / ndf << std::endl
-    << "p-value = " << pValue << std::endl;
-
-    delete nullHypothesis;
-    return {ndf, chi2, pValue};
+    delete chain;
 }
