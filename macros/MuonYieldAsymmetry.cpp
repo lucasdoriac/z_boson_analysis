@@ -32,22 +32,156 @@ Final 'observable' is just the mean of y-coordinate of the A TGraph in the range
 
 
 //---Macro settings
+std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
+//std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
+
 std::string plot_extension = ".pdf"; // ".png" for regular development and ".pdf" for final quality plots
-std::string whichDataset = "PbPb_Run3_Data"; // "PbPb2023_2024_Data", "PbPb2023_Data", "PbPb2024_Data". 
+std::string whichDataset = "PbPb_Run3_Data"; // "PbPb2023_2024_Data", "PbPb2023_Data", "PbPb2024_Data".
 std::string JointPbPb = "PbPb2023-2026"; //"PbPb2023+2024", "PbPb2023", "PbPb2024".
-std::string dataSamplesUsed = "PbPb 2023-2026, ppRef 2024 (5.36 TeV)";
+std::string dataSamplesUsed = "PbPb 2023-2026, ppRef 2024 (5.36 TeV)"; //"PbPb 2023+2024, ppRef 2024 (5.36 TeV)", "PbPb 2023, ppRef 2024 (5.36 TeV)", "PbPb 2024, ppRef 2024 (5.36 TeV)".
 double delta = 1e-6; //Small value to avoid binning issues when projecting histograms.
 
-double rho = 1.0; //Correlation coefficient for error propagation in asymmetry calculation.
-double fitMin = 40.; //Minimum x-value for the fit range of the asymmetry histogram.
-double fitMax = 65.; //Maximum x-value for the fit range of the asymmetry histogram.
+double rho = 1.; //Correlation coefficient
+
+
+//Good Selection values
+const double maxZvtx = 15.0;
+
+const double minZ_Mass = 60.;
+const double maxZ_Mass = 120.;
+const double RapidityCutValue = 2.4;
+
+const double EtaCutValue = 2.4;
+const double ptCutValue = 20.;
 
 
 // ##############################################################################
 // ##############################################################################
 
 
-//Set of centrality bins for PbPb2024 data. We can decide to change the centrality bins later if we want to.
+//---Enumerates
+enum class SampleType {
+    Data,
+    MC
+};
+
+enum class CollisionSystem {
+    ppRef,
+    PbPb
+};
+
+//---Structs
+struct Dataset {
+    std::string name;
+    SampleType type;
+    CollisionSystem system;
+    int year;
+    std::string treeName;
+    std::string filePattern;
+    std::string basePath;
+
+    bool hasCentrality;//Or maybe is AA
+    bool applyTrigger;
+    ULong64_t triggerBit;
+};
+
+Dataset datasets[] = {
+    
+    {
+        "ppRef2024_Data",
+        SampleType::Data,
+        CollisionSystem::ppRef,
+        2024,
+        "hionia/DimuonTree",
+        "HighPtMuons_HLTL2SingleMu_ppRef2024.root",
+        BasePath + "Data/ppRef2024/",
+        false,
+        false,
+        0ULL
+    },
+    
+    {
+        "PbPb2023_Data",
+        SampleType::Data,
+        CollisionSystem::PbPb,
+        2023,
+        "hionia/DimuonTree",
+        "HighPtMuons_HLTL2SingleMu_PbPb2023.root",
+        BasePath + "Data/PbPb2023/",
+        true,
+        true,
+        1ULL << 6 //'HLT_HIL2SingleMu7_v'
+    },
+
+    {
+        "PbPb2024_Data",
+        SampleType::Data,
+        CollisionSystem::PbPb,
+        2024,
+        "hionia/DimuonTree",
+        "HighPtMuons_HLTL2SingleMu_PbPb2024Data.root",
+        BasePath + "Data/PbPb2024/",
+        true,
+        true,
+        1ULL << 7 //'HLT_HIL2SingleMu12_v'
+    },
+
+    {
+        "PbPb2025_Data",
+        SampleType::Data,
+        CollisionSystem::PbPb,
+        2025,
+        "hionia/DimuonTree",
+        "HighPtMuon_PbPb2025Data.root",
+        BasePath + "Data/PbPb2025/",
+        true,
+        true,
+        1ULL << 7 //'HLT_HIL2SingleMu12_v'
+    },
+
+    {
+        "PbPb2026_Data",
+        SampleType::Data,
+        CollisionSystem::PbPb,
+        2026,
+        "hionia/DimuonTree",
+        "HighPtMuon_PbPb2026Data.root",
+        BasePath + "Data/PbPb2026/",
+        true,
+        true,
+        1ULL << 7 //'HLT_HIL2SingleMu12_v'
+    },
+
+    {
+        "PbPb2024_MC",
+        SampleType::MC,
+        CollisionSystem::PbPb,
+        2024,
+        "hionia/myTree",
+        "Oniatree_PowhegZtoMuMu_PbPb2024_*.root",
+        BasePath + "MC/PbPb2024/DYto2Mu_MLL-50_TuneCP5_5p36TeV_powheg-pythia8/PowhegEmbedded_March9/260309_143939/0000/",
+        false,
+        false,
+        0ULL
+    },
+
+    {
+        "ppRef2024_MC",
+        SampleType::MC,
+        CollisionSystem::ppRef,
+        2024,
+        "hionia/myTree",
+        "Oniatree_PowhegZtoMuMu_ppRef2024_*.root",
+        BasePath + "MC/ppRef2024/DYToMuMu_M-50_TuneCP5_5p36TeV_powheg-pythia8/Powheg_ppRefPileup_March20/260320_125046/0000/",
+        false,
+        false,
+        0ULL
+    }
+};
+
+
+
+//Set of centrality bins for PbPb2024 data.
 std::vector<std::pair<double, double>> CentralityBinsSet = {
     {0., 10.},
     {10., 20.},
@@ -67,382 +201,281 @@ std::vector<std::pair<double, double>> CentralityBinsSet = {
 };*/
 
 
-//Vector of histograms
-std::vector<TH1D*> AsymmetryHists;
+//Reference asymmetry vector values for each centrality bin.
+std::vector<double> referenceAsymmetry;
 
 
-//Vectors to store the mean asymmetry and its error for each centrality bin.
-std::vector<double> meanAsymmetryValues;
-std::vector<double> meanAsymmetryErrors;
-
-
-//---Function declarations
-void MakeAsymmetryHist_PbPb(TFile* inputFile, double lowCent, double highCent);
-void PlotAsymmetryHists();
-void PlotAsymmetry_vs_Centrality();
+//---Function declarations;
+void FillPtHistograms(const Dataset& dataset, float lowCent, float highCent, TH1D* h1D_PtMuPl, TH1D* h1D_PtMuMi);
+void FillReferenceAsymmetryVector(float lowCent, float highCent, TH1D* h1D_PtMuPl, TH1D* h1D_PtMuMi);
+void MakeAsymmetryTGraph(float lowCent, float highCent, TH1D* h1D_PtMuPl, TH1D* h1D_PtMuMi, CollisionSystem system);
 
 
 //---Main()
-void MuonYieldAsymmetry(){
-
-    //Clear vectors
-    AsymmetryHists.clear();
-    meanAsymmetryValues.clear();
-    meanAsymmetryErrors.clear();
-
+void MuonYieldPtWithRatio(){
 
     gROOT->SetBatch(kTRUE);
-    TFile* inputFile = new TFile("mySelectedData.root", "READ");
 
+    //Plot the ppRef just for reference.
+    TH1D* h1D_PtMuPl_ppRef = new TH1D("h1D_PtMuPl_ppRef", "Muon Plus pT; pT [GeV]; Entries", 200, 0., 200.);
+    TH1D* h1D_PtMuMi_ppRef = new TH1D("h1D_PtMuMi_ppRef", "Muon Minus pT; pT [GeV]; Entries", 200, 0., 200.);
+    FillPtHistograms(datasets[0], 0., 100., h1D_PtMuPl_ppRef, h1D_PtMuMi_ppRef); //ppRef
+    FillReferenceAsymmetryVector(0., 100., h1D_PtMuPl_ppRef, h1D_PtMuMi_ppRef);
 
-    for(const auto& centralityBin : CentralityBinsSet){
-        double lowCent = centralityBin.first;
-        double highCent = centralityBin.second;
+    //For PbPb datasets loop over centrality bins. 
+    for(const auto& cBin : CentralityBinsSet){
 
-        MakeAsymmetryHist_PbPb(inputFile, lowCent, highCent);
-    }
+        //One histogram for each distribution: dN/dpT(mu+) and dN/dpT(mu-)
+        TH1D* h1D_PtMuPl = new TH1D("h1D_PtMuPl", "Muon Plus pT; pT [GeV]; Entries", 200, 0., 200.);
+        TH1D* h1D_PtMuMi = new TH1D("h1D_PtMuMi", "Muon Minus pT; pT [GeV]; Entries", 200, 0., 200.);
 
-    PlotAsymmetryHists();
-    PlotAsymmetry_vs_Centrality();
+        FillPtHistograms(datasets[1], cBin.first, cBin.second, h1D_PtMuPl, h1D_PtMuMi); //PbPb2023 dataset
+        FillPtHistograms(datasets[2], cBin.first, cBin.second, h1D_PtMuPl, h1D_PtMuMi); //PbPb2024 dataset
+        FillPtHistograms(datasets[3], cBin.first, cBin.second, h1D_PtMuPl, h1D_PtMuMi); //PbPb2025 dataset
+        FillPtHistograms(datasets[4], cBin.first, cBin.second, h1D_PtMuPl, h1D_PtMuMi); //PbPb2026 dataset
 
-    inputFile->Close();
-}
+        //At this point the histograms have all candidates in each centrality bin.
+        MakeAsymmetryTGraph(cBin.first, cBin.second, h1D_PtMuPl, h1D_PtMuMi, CollisionSystem::PbPb);
 
-void PlotAsymmetryHists(){
-
-    ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2");
-    ROOT::Math::MinimizerOptions::SetDefaultTolerance(1e-8);
-    ROOT::Math::MinimizerOptions::SetDefaultMaxFunctionCalls(1000000);
-
-    for(size_t i = 0; i < AsymmetryHists.size(); ++i){
-
-        //Since the fit is showing to be too sensitive to the value of rho, i'll use the simple mean for now.
-        /*std::string fitCentString = Form("pol0Fit_%.0f-%.0f", CentralityBinsSet[i].first, CentralityBinsSet[i].second);
-        //Part one: Make fits and fill vectors with fit results.
-        TF1* fitFunc = new TF1(fitCentString.c_str(), "[0]", fitMin, fitMax);
-        AsymmetryHists[i]->Fit(fitFunc, "NO R EX0 Q", "", fitMin, fitMax);
-        AsymmetryHists[i]->Fit(fitFunc, "NO R EX0 Q", "", fitMin, fitMax);
-        TFitResultPtr fitResult = AsymmetryHists[i]->Fit(fitFunc, "NO R EX0 M S", "", fitMin, fitMax);
-
-        //Get results to terminal
-        double chi2 = fitResult->Chi2();
-        int ndf = fitResult->Ndf();
-        double pValue = TMath::Prob(chi2, ndf);
-        std::cout << "Centrality bin: " << CentralityBinsSet[i].first << "-" << CentralityBinsSet[i].second << "%, chi2: " << chi2
-                    << ", ndf: " << ndf << ", p-value: " << pValue << std::endl;
-
-        double meanDeltaA = fitResult->Parameter(0);
-        double meanError = fitResult->ParError(0);*/
-
-        //Simple mean of y-coordinates of the histogram within the fit range.
-        //Find bin of fitMin and fitMax
-        int binMin = AsymmetryHists[i]->FindBin(fitMin + delta);
-        int binMax = AsymmetryHists[i]->FindBin(fitMax - delta);
-
-        double y = 0;
-        double error = 0;
-        double n = 0;
-        for(int bin = binMin; bin <= binMax; ++bin){
-
-            //Print the x values of the bins being used for the mean calculation.
-            std::cout << "Bin " << bin << " x: " << AsymmetryHists[i]->GetBinCenter(bin) << std::endl;
-
-            y+= AsymmetryHists[i]->GetBinContent(bin);
-            error+= std::pow(AsymmetryHists[i]->GetBinError(bin),2); //Variance sum.
-            n++;
-        }
-
-        std::cout << "Total of bins used = " << n << std::endl;
-        double meanDeltaA = y/n;
-        double meanError = std::sqrt(error) / n;
-
-        //Store results for this centrality bin in the vectors
-        meanAsymmetryValues.push_back(meanDeltaA);
-        meanAsymmetryErrors.push_back(meanError);
-
-        //Part two: Plot the asymmetry histograms with fit for each centrality bin.
-        TCanvas* c = new TCanvas("c", "Muon Yield Asymmetry", 800, 600);
-        basicCanvasFormatting(c);
-        c->SetLeftMargin(0.1);
-
-        basicHistFormatting(AsymmetryHists[i]);
-        AsymmetryHists[i]->SetMarkerStyle(20);
-        AsymmetryHists[i]->SetMarkerSize(0.8);
-        AsymmetryHists[i]->SetMarkerColorAlpha(kRed+1, 1.);
-        AsymmetryHists[i]->SetLineColorAlpha(kRed-7, 0.8);
-
-        AsymmetryHists[i]->GetXaxis()->SetTitle("p_{T} [GeV/c]");
-        AsymmetryHists[i]->GetYaxis()->SetTitle("A(p_{T})");
-        AsymmetryHists[i]->GetYaxis()->CenterTitle(true);
-        AsymmetryHists[i]->GetYaxis()->SetTitleOffset(1.1);
-        AsymmetryHists[i]->GetXaxis()->SetRangeUser(18., 100.);
-
-        AsymmetryHists[i]->GetXaxis()->SetRangeUser(38., 70.);
-        AsymmetryHists[i]->GetYaxis()->SetRangeUser(-0.2, 0.2);
-
-
-        AsymmetryHists[i]->Draw("E1");
-
-        //Draw fit
-        //fitFunc->SetLineColor(kCyan+2);
-        //fitFunc->SetLineWidth(2);
-        //fitFunc->SetLineStyle(4);
-        //fitFunc->Draw("SAME");
-
-        //Grey line at y=0
-        TLine* line = new TLine(38., 0.0, 70., 0.0);
-        line->SetLineColor(kGray);
-        line->SetLineStyle(7);
-        line->SetLineWidth(1);
-        line->Draw("SAME");
-
-        drawLatexText("#bf{CMS}", 0.11, 0.93, 0.042);
-        drawLatexText("#it{Work in Progress}", 0.18, 0.93, 0.033);
-        drawLatexText(dataSamplesUsed.c_str(), 0.55, 0.93, 0.033);
-
-        //Plot specifications
-        drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.2, 0.28, 0.03);
-        drawLatexText("60 < M_{#mu#mu} < 120 GeV", 0.2, 0.24, 0.03);
-
-        c->Update();
-        std::string outputName = Form("Asymmetry_hist_cent_%g_%g", CentralityBinsSet[i].first, CentralityBinsSet[i].second) + plot_extension;
-        c->SaveAs(outputName.c_str());
-
-        delete c;
+        delete h1D_PtMuPl;
+        delete h1D_PtMuMi;
     }
 
 }
 
 
-void PlotAsymmetry_vs_Centrality(){
+void FillReferenceAsymmetryVector(float lowCent, float highCent, TH1D* h1D_PtMuPl, TH1D* h1D_PtMuMi){
 
-    //Make the TGraphErrors for mean asymmetry vs centrality.
-    int nPoints = meanAsymmetryValues.size();
-    if(nPoints != CentralityBinsSet.size()){
-            std::cerr << "Error: Number of points in PeakDifferenceAndError does not match number of centrality bins." << std::endl;
-            return;
-    }
-
-    std::vector<double> xValues(nPoints);
-    std::vector<double> xErrors(nPoints);
-    std::vector<double> yValues(nPoints);
-    std::vector<double> yErrors(nPoints);
-
-    for(int i = 0; i < nPoints; ++i){
-        xValues[i] = i + 1;
-        xErrors[i] = 0.;
-        yValues[i] = meanAsymmetryValues[i];
-        yErrors[i] = meanAsymmetryErrors[i];
-    }
     
 
-    TGraphErrors* graph = new TGraphErrors(nPoints, xValues.data(), yValues.data(), xErrors.data(), yErrors.data());
+}
+
+
+void MakeAsymmetryTGraph(float lowCent, float highCent, TH1D* h1D_PtMuPl, TH1D* h1D_PtMuMi, CollisionSystem system){
+
+    //Create TGraph for asymmetry A = (N_{mu+} - N_{mu-}) / (N_{mu+} + N_{mu-})
+    int nBins = h1D_PtMuPl->GetNbinsX();
+    std::vector<double> xValues;
+    std::vector<double> yValues;
+    std::vector<double> xErrors;
+    std::vector<double> yErrors;
+
+    for(int i = 1; i <= nBins; ++i){
+
+        double N_muPlus  = h1D_PtMuPl->GetBinContent(i);
+        double N_muMinus = h1D_PtMuMi->GetBinContent(i);
+
+        double sum = N_muPlus + N_muMinus;
+        if (sum <= 0.) continue; //Protect against division by zero or previous bug.
+
+        double A = (N_muPlus - N_muMinus) / sum;
+
+        double sigmaPlus  = h1D_PtMuPl->GetBinError(i);
+        double sigmaMinus = h1D_PtMuMi->GetBinError(i);
+
+        //Error propagation for A considering complete correlation between N_muPlus and N_muMinus.
+        double sigma_A = 2. * std::abs(N_muMinus * sigmaPlus - N_muPlus * sigmaMinus) / (sum * sum);
+
+        xValues.push_back(h1D_PtMuPl->GetBinCenter(i));
+        xErrors.push_back(0.);
+        yValues.push_back(A);
+        yErrors.push_back(sigma_A);
+    }
+
+    //Check xValues size. Should always be 200.
+    if (xValues.size() != 200) {
+        std::cerr << "Warning: xValues size is " << xValues.size() << ", expected 200." << std::endl;
+    }
+
+    TGraphErrors* graph = new TGraphErrors(xValues.size(), xValues.data(), yValues.data(), xErrors.data(), yErrors.data());
     basicGraphFormatting(graph);
 
 
-    TCanvas* c = new TCanvas("c", "Muon Yield Asymmetry vs Centrality", 800, 600);
-    basicCanvasFormatting(c);
-    c->SetLeftMargin(0.13);
 
-    //Frame TH1 helper to set the x-axis labels for centrality bins.
-    TH1D* frame = new TH1D("frame","",nPoints,0.5,nPoints + 0.5);
-    basicHistFormatting(frame);
-    for(int i = 0; i < nPoints; ++i){
-        std::string label = Form("%.0f-%.0f%%", CentralityBinsSet[i].first, CentralityBinsSet[i].second);
-        frame->GetXaxis()->SetBinLabel(i + 1,label.c_str());
-    }
-
-    //Give range information to new frame histogram:
-    double yMin = yValues[0] - yErrors[0];
-    double yMax = yValues[0] + yErrors[0];
-    for(int i = 1; i < nPoints; ++i){
-        yMin = std::min(yMin,yValues[i] - yErrors[i]);
-        yMax = std::max(yMax,yValues[i] + yErrors[i]);
-    }
-    double yRange = yMax - yMin;
-    yMin -= 0.20 * yRange;
-    yMax += 0.20 * yRange;
-    
-    //Make sure zero is visible:
-    yMin = std::min(yMin, 0.0);
-    yMax = std::max(yMax, 0.0);
-    frame->SetMinimum(yMin);
-    frame->SetMaximum(yMax);
-    //
-
-    frame->GetXaxis()->SetTickLength(0.0);
-    frame->GetXaxis()->SetTitle("Centrality bin");
-    frame->GetYaxis()->SetTitle("#LT #Delta A #GT (fit)");
-    frame->GetYaxis()->CenterTitle(true);
-    frame->GetYaxis()->SetTitleOffset(1.4);
-
-    //Draw only the axis frame.
-    frame->Draw("AXIS");
-
-    //Format graph.
-    graph->SetMarkerStyle(21);
-    graph->SetMarkerSize(0.9);
-    graph->SetMarkerColorAlpha(kRed+1, 1.);
-    graph->SetLineColorAlpha(kRed-7, 0.8);
-    graph->SetLineWidth(2);
-
-    //Draw
-    graph->Draw("P SAME");
-
-    //Grey line at y=0
-    TLine* line = new TLine(0.5, 0.0, 0.5+nPoints, 0.0);
-    line->SetLineColor(kGray);
-    line->SetLineStyle(7);
-    line->SetLineWidth(2);
-    line->Draw();
-
-    drawLatexText("#bf{CMS}", 0.13, 0.93, 0.042);
-    drawLatexText("#it{Work in Progress}", 0.2, 0.93, 0.033);
-    drawLatexText(dataSamplesUsed.c_str(), 0.55, 0.93, 0.033);
-    
-    //Plot specifications
-    drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.22, 0.22, 0.03);
-    drawLatexText("60 < M_{#mu#mu} < 120 GeV", 0.22, 0.17, 0.03);
-
-    c->Update();
-    std::string outputName = "Asymmetry_vs_Centrality" + plot_extension;
-    c->SaveAs(outputName.c_str());
-
-    delete frame;
-    delete line;
-    delete graph;
-    delete c;
 }
 
-void MakeAsymmetryHist_PbPb(TFile* inputFile, double lowCent, double highCent){
 
-    //**ppRef:**
+void FillPtHistograms(const Dataset& dataset, float lowCent, float highCent, TH1D* h1D_PtMuPl, TH1D* h1D_PtMuMi){
 
-    //Get directory
-    TDirectory *ppRef_dir = inputFile->GetDirectory("ppRef2024_Data");
+    // Load root file.
+    std::string fullPath = dataset.basePath + dataset.filePattern;
 
-    //In this case we don't have a TH3D histogram so we can just use the individual TH1 ones.
-    //Originals
-    TH1D* h1D_PtMuPl = dynamic_cast<TH1D*>(ppRef_dir->Get("h1D_ptMuPlus"));
-    TH1D* h1D_PtMuMi = dynamic_cast<TH1D*>(ppRef_dir->Get("h1D_ptMuMinus"));
+    TChain *chain = new TChain(dataset.treeName.c_str());
+    chain->Add(fullPath.c_str());
 
-    //Now fill asymmetry histogram
-    TH1D* h1D_Asymmetry_ppRef = new TH1D("h1D_Asymmetry_ppRef", "Muon Yield Asymmetry; p_{T} [GeV/c]; A(p_{T})", 100, 0., 100.);
-    for(int i = 1; i <= h1D_Asymmetry_ppRef->GetNbinsX(); ++i){
-        //Get bin contents for mu+ and mu-
-        double N_plus = h1D_PtMuPl->GetBinContent(i);
-        double N_minus = h1D_PtMuMi->GetBinContent(i);
+    std::cout << "> Number of files added to TChain = " << chain->GetListOfFiles()->GetEntries() << "\n" << std::endl;
+    std::cout << "> Opening files " << fullPath << "\n" << std::endl;
+    std::cout << "> Running function " << __func__ << " on " << dataset.name << "\n" << std::endl;
+    
+    //Total number of events on Tree.
+    Long64_t nEvents = chain->GetEntries();
 
-        //Get the poisson errors
-        double N_plusError = h1D_PtMuPl->GetBinError(i);
-        double N_minusError = h1D_PtMuMi->GetBinError(i);
+    const int MAX_DIMUON = 1000;
+    const int MAX_MUON   = 1000;
 
-        if(N_plus + N_minus == 0){//Just to avoid division by zero
-            h1D_Asymmetry_ppRef->SetBinContent(i, 0.); 
-            h1D_Asymmetry_ppRef->SetBinError(i, 0.);
-            continue;
+    //For now, writing ONLY branches that are relevant to the observable we want to measure.
+
+    //Event-level variables
+    Int_t Centrality;
+    Float_t  zVtx;
+
+    chain->SetBranchAddress("zVtx", &zVtx);
+
+    if(dataset.hasCentrality) {//PbPb2023, PbPb2024.
+        chain->SetBranchAddress("Centrality", &Centrality);
+    }
+
+    //Dimuon-level variables
+    Short_t Reco_Dimuon_size;
+
+    Short_t Reco_Dimuon_sign[MAX_DIMUON];
+    Short_t Reco_Dimuon_muonPlusIndex[MAX_DIMUON];
+    Short_t Reco_Dimuon_muonMinusIndex[MAX_DIMUON];
+
+    ULong64_t Reco_Dimuon_trig[MAX_DIMUON];
+    Float_t Reco_Dimuon_vtxProb[MAX_DIMUON];
+
+    std::vector<float>* Reco_Dimuon_pt = nullptr;
+    std::vector<float>* Reco_Dimuon_eta = nullptr;
+    std::vector<float>* Reco_Dimuon_rapidity = nullptr;
+    std::vector<float>* Reco_Dimuon_phi = nullptr;
+    std::vector<float>* Reco_Dimuon_invMass = nullptr;
+
+    std::vector<float>* Reco_Dimuon_muonPtDiff = nullptr;
+    std::vector<float>* Reco_Dimuon_muonPtRelDiff = nullptr;
+
+    chain->SetBranchAddress("Reco_Dimuon_size", &Reco_Dimuon_size);
+
+    chain->SetBranchAddress("Reco_Dimuon_sign", Reco_Dimuon_sign);
+    chain->SetBranchAddress("Reco_Dimuon_muonPlusIndex", Reco_Dimuon_muonPlusIndex);
+    chain->SetBranchAddress("Reco_Dimuon_muonMinusIndex", Reco_Dimuon_muonMinusIndex);
+
+    chain->SetBranchAddress("Reco_Dimuon_trig", Reco_Dimuon_trig);
+    chain->SetBranchAddress("Reco_Dimuon_vtxProb", Reco_Dimuon_vtxProb);
+
+    chain->SetBranchAddress("Reco_Dimuon_pt", &Reco_Dimuon_pt);
+    chain->SetBranchAddress("Reco_Dimuon_eta", &Reco_Dimuon_eta);
+    chain->SetBranchAddress("Reco_Dimuon_rapidity", &Reco_Dimuon_rapidity);
+    chain->SetBranchAddress("Reco_Dimuon_phi", &Reco_Dimuon_phi);
+    chain->SetBranchAddress("Reco_Dimuon_invMass", &Reco_Dimuon_invMass);
+
+    chain->SetBranchAddress("Reco_Dimuon_muonPtDiff", &Reco_Dimuon_muonPtDiff);
+    chain->SetBranchAddress("Reco_Dimuon_muonPtRelDiff", &Reco_Dimuon_muonPtRelDiff);
+
+    //Muon-level variables
+    Short_t Reco_Muon_size;
+
+    std::vector<float>* Reco_Muon_pt = nullptr;
+    //std::vector<float>* Reco_Muon_ptErrTrk = nullptr; //I think we need to study this branch further.
+    std::vector<float>* Reco_Muon_eta = nullptr;
+    std::vector<float>* Reco_Muon_phi = nullptr;
+    std::vector<float>* Reco_Muon_mass = nullptr;
+
+    ULong64_t Reco_Muon_trig[MAX_MUON];
+    Bool_t Reco_Muon_isTightCutBased[MAX_MUON];
+    
+    chain->SetBranchAddress("Reco_Muon_size", &Reco_Muon_size);
+
+    chain->SetBranchAddress("Reco_Muon_pt", &Reco_Muon_pt);
+    //chain->SetBranchAddress("Reco_Muon_ptErrTrk", &Reco_Muon_ptErrTrk);
+    chain->SetBranchAddress("Reco_Muon_eta", &Reco_Muon_eta);
+    chain->SetBranchAddress("Reco_Muon_phi", &Reco_Muon_phi);
+    chain->SetBranchAddress("Reco_Muon_mass", &Reco_Muon_mass);
+
+    chain->SetBranchAddress("Reco_Muon_trig", Reco_Muon_trig);
+    chain->SetBranchAddress("Reco_Muon_isTightCutBased", Reco_Muon_isTightCutBased);
+
+
+    //Muon-level selection variables
+    double ptplus, ptminus;
+    double etaplus, etaminus;
+    bool MuPlIsTight;
+    bool MuMiIsTight;
+    
+    //Centrality interval passed as argument to the function.
+    float minCentrality = 2.*lowCent;
+    float maxCentrality = 2.*highCent;
+    //
+
+    for(Long64_t i = 0; i < nEvents; ++i){//Loop through all EVENTS in the CHAIN.
+
+        chain->GetEntry(i); //Get event i.
+
+        //Good event selection
+        bool goodVertex = (std::abs(zVtx) < maxZvtx);
+        bool goodCent = true;
+
+        if (dataset.hasCentrality) {
+            goodCent = (Centrality >= minCentrality && Centrality < maxCentrality);
         }
 
-        double denominator = N_plus + N_minus;
-        double asymmetry = (N_plus - N_minus) / denominator;
+        if (!goodVertex) continue;
+        if (!goodCent) continue;
 
-        //Error propagation for asymmetry calculation. Lara's eq. for ratio.
-        //double asymmetryError = (N_plus/N_minus)*std::sqrt((N_plusError/N_plus)*(N_plusError/N_plus) + (N_minusError/N_minus)*(N_minusError/N_minus) - 2.*(N_plusError*N_plusError)/(N_plus*N_minus));
-        double CovTerm = 2.*N_plus*N_minus*N_plusError*N_minusError*rho;
-        double asymmetryError = 2./(denominator*denominator)*std::sqrt(N_minus*N_minus*N_plusError*N_plusError + N_plus*N_plus*N_minusError*N_minusError - CovTerm);
+        for(Short_t j = 0; j < Reco_Dimuon_size; ++j){ //Loop through all reco dimuon candidates of event i.
+            
+            //Good Z selection
+            bool goodMass = (Reco_Dimuon_invMass->at(j) > minZ_Mass && Reco_Dimuon_invMass->at(j) < maxZ_Mass);
+            bool goodRapidity = (std::abs(Reco_Dimuon_rapidity->at(j)) < RapidityCutValue);
+            bool goodCharge = (Reco_Dimuon_sign[j] == 0); //Opposite sign muons.
+            bool goodVtxProb = (Reco_Dimuon_vtxProb[j] > 0.001); //Vertex probability cut of .1% for dimuon candidates.
+            bool isTriggerMatched = true;
+
+                if (dataset.applyTrigger) {
+                    //**At least** one of the daughter muons must be matched to the trigger.
+                    isTriggerMatched = (Reco_Dimuon_trig[j] & dataset.triggerBit);//Corresponding triggerBit to that dataset.
+                }
+
+            if (!goodMass) continue;
+            if (!goodRapidity) continue;
+            if (!goodCharge) continue;
+            if (!goodVtxProb) continue;
+            if (!isTriggerMatched) continue;
+
+            //Good muon selection
+            Short_t muonPlusIndex = Reco_Dimuon_muonPlusIndex[j]; //Index of antimuon in the reco muon arrays.
+            Short_t muonMinusIndex = Reco_Dimuon_muonMinusIndex[j]; //Index of corresponding muon in the reco muon arrays.
+
+            ptplus = Reco_Muon_pt->at(muonPlusIndex); //pT of antimuon.
+            ptminus = Reco_Muon_pt->at(muonMinusIndex); //pT of corresponding muon.
+            etaplus = Reco_Muon_eta->at(muonPlusIndex); //Pseudorapidity of antimuon.
+            etaminus = Reco_Muon_eta->at(muonMinusIndex); //Pseudorapidity of corresponding muon.
+            MuPlIsTight = Reco_Muon_isTightCutBased[muonPlusIndex];
+            MuMiIsTight = Reco_Muon_isTightCutBased[muonMinusIndex];
+            
+            bool goodMuPl = (ptplus > ptCutValue && ptplus < 200.)
+                            && (std::abs(etaplus) < EtaCutValue)
+                            && (MuPlIsTight);
+
+            bool goodMuMi = (ptminus > ptCutValue && ptminus < 200.)
+                            && (std::abs(etaminus) < EtaCutValue)
+                            && (MuMiIsTight);
+
+            if (!goodMuPl || !goodMuMi) continue;
+            //End of good selection for dimuon candidate j of event i.
+            
+
+            //Fill each histogram with respective muon pT.
+            h1D_PtMuPl->Fill(ptplus);
+            h1D_PtMuMi->Fill(ptminus);
+
+        }//End of dimuon candidate loop.
 
 
-        h1D_Asymmetry_ppRef->SetBinContent(i, asymmetry);
-        h1D_Asymmetry_ppRef->SetBinError(i, asymmetryError);
-    }
-    //End of ppRef part.
+        //Track progress of event loop.
+        Long64_t progressStep = std::max<Long64_t>(1, nEvents / 100);
+        if (i % progressStep == 0){
 
-    //**PbPb:**
-    //Get directory
-    TDirectory *PbPb_dir = inputFile->GetDirectory(whichDataset.c_str());
-    TH3D* h_original = dynamic_cast<TH3D*>(PbPb_dir->Get("h3D_PtMuPl_PtMuMi_Cent"));
+            int percent = static_cast<int>(100.0 * i / nEvents+0.5);
 
-    /*
-    z-axis -> centrality
-    y-axis -> pT of mu-
-    x-axis -> pT of mu+
-    */
-
-    //Clone
-    TH3D* h3D_PtMuPl_PtMuMi_Cent = dynamic_cast<TH3D*>(h_original->Clone("h3D_PtMuPl_PtMuMi_Cent"));
-
-    //Select centrality range and project onto pT(mu+) vs pT(mu-) plane.
-    int binLow = h3D_PtMuPl_PtMuMi_Cent->GetZaxis()->FindBin(lowCent + delta);
-    int binHigh = h3D_PtMuPl_PtMuMi_Cent->GetZaxis()->FindBin(highCent - delta);
-
-    std::cout << "> Centrality range: " << lowCent << " - " << highCent << std::endl;
-    h3D_PtMuPl_PtMuMi_Cent->GetZaxis()->SetRange(binLow, binHigh);
-
-    TH2D* h2D_PtMuPl_PtMuMi = dynamic_cast<TH2D*>(h3D_PtMuPl_PtMuMi_Cent->Project3D("yx"));
-
-    //Project into TH1Ds to calculate asymmetry histogram later
-    h1D_PtMuPl = dynamic_cast<TH1D*>(h2D_PtMuPl_PtMuMi->ProjectionX("h1D_PtMuPl"));
-    h1D_PtMuMi = dynamic_cast<TH1D*>(h2D_PtMuPl_PtMuMi->ProjectionY("h1D_PtMuMi"));
-
-    //Now fill asymmetry histogram
-    TH1D* h1D_AsymmetryPbPb = new TH1D("h1D_AsymmetryPbPb", "Muon Yield Asymmetry; p_{T} [GeV/c]; A(p_{T})", 100, 0., 100.);
-    for(int i = 1; i <= h1D_AsymmetryPbPb->GetNbinsX(); ++i){
-        //Get bin contents for mu+ and mu-
-        double N_plus = h1D_PtMuPl->GetBinContent(i);
-        double N_minus = h1D_PtMuMi->GetBinContent(i);
-
-        //Get the poisson errors
-        double N_plusError = h1D_PtMuPl->GetBinError(i);
-        double N_minusError = h1D_PtMuMi->GetBinError(i);
-
-        if(N_plus + N_minus == 0){
-            h1D_AsymmetryPbPb->SetBinContent(i, 0.); //Avoid division by zero
-            h1D_AsymmetryPbPb->SetBinError(i, 0.);
-            continue;
+            std::cout << "\r"
+                      << percent
+                      << "% complete..."
+                      << std::flush;
         }
 
-        double denominator = N_plus + N_minus;
-        double asymmetry = (N_plus - N_minus) / denominator;
+    }//Exiting event-by-event loop.
 
-        //Error propagation for asymmetry calculation. Lara's eq. for ratio.
-        //double asymmetryError = (N_plus/N_minus)*std::sqrt((N_plusError/N_plus)*(N_plusError/N_plus) + (N_minusError/N_minus)*(N_minusError/N_minus) - 2.*(N_plusError*N_plusError)/(N_plus*N_minus));
-        double CovTerm = 2.*N_plus*N_minus*N_plusError*N_minusError*rho;
-        double asymmetryError = 2./(denominator*denominator)*std::sqrt(N_minus*N_minus*N_plusError*N_plusError + N_plus*N_plus*N_minusError*N_minusError - CovTerm);
 
-        h1D_AsymmetryPbPb->SetBinContent(i, asymmetry);
-        h1D_AsymmetryPbPb->SetBinError(i, asymmetryError);
-    }
-    //End of PbPb part.
-
-    //Make relative asymmetry histogram
-    std::string histName = Form("h1D_RelAsym_cent_%g_%g", lowCent, highCent);
-    TH1D* h1D_RelativeAsymmetry = new TH1D(histName.c_str(), "Muon Yield Asymmetry Difference; p_{T} [GeV/c]; #Delta A(p_{T})", 100, 0., 100.);
-    
-
-    for(int i = 1; i <= h1D_AsymmetryPbPb->GetNbinsX(); ++i){
-
-        //Set bin contents with the difference between PbPb and ppRef asymmetry histograms.
-        double asymmetry_ppRef = h1D_Asymmetry_ppRef->GetBinContent(i);
-        double asymmetry_PbPb = h1D_AsymmetryPbPb->GetBinContent(i);
-        double relative_asymmetry = (asymmetry_PbPb - asymmetry_ppRef);
-        h1D_RelativeAsymmetry->SetBinContent(i, relative_asymmetry);
-
-        //Independent error propagation for the relative asymmetry histogram:
-        double error_ppRef = h1D_Asymmetry_ppRef->GetBinError(i);
-        double error_PbPb = h1D_AsymmetryPbPb->GetBinError(i);
-        double relative_asymmetry_error = std::sqrt(error_ppRef*error_ppRef + error_PbPb*error_PbPb);
-        h1D_RelativeAsymmetry->SetBinError(i, relative_asymmetry_error);
-    }
-
-    //Store the relative asymmetry histogram in the vector.
-    AsymmetryHists.push_back(h1D_RelativeAsymmetry);
-
-    
-    delete h1D_Asymmetry_ppRef;
-    delete h1D_AsymmetryPbPb;
-    delete h1D_PtMuPl;
-    delete h1D_PtMuMi;
-    delete h2D_PtMuPl_PtMuMi;
-    delete h3D_PtMuPl_PtMuMi_Cent;
-    delete h_original;
+    delete chain;
 }
