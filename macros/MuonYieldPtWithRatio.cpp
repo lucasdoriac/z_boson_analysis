@@ -196,6 +196,8 @@ std::vector<std::pair<double, double>> CentralityBinsSet = {
 
 
 //---Function declarations;
+void FillPtHistograms(const Dataset& dataset, float lowCent, float highCent, TH1D* h1D_PtMuPl, TH1D* h1D_PtMuMi);
+void PlotPtDistributionsWithRatio(float lowCent, float highCent, TH1D* h1D_PtMuPl, TH1D* h1D_PtMuMi);
 
 
 //---Main()
@@ -203,7 +205,7 @@ void MuonYieldPtWithRatio(){
 
     gROOT->SetBatch(kTRUE);
 
-    
+
     //One histogram for each distribution: dN/dpT(mu+) and dN/dpT(mu-)
     TH1D* h1D_PtMuPl = new TH1D("h1D_PtMuPl", "Muon Plus pT; pT [GeV]; Entries", 200, 0., 200.);
     TH1D* h1D_PtMuMi = new TH1D("h1D_PtMuMi", "Muon Minus pT; pT [GeV]; Entries", 200, 0., 200.);
@@ -215,20 +217,44 @@ void MuonYieldPtWithRatio(){
         h1D_PtMuPl->Reset();
         h1D_PtMuMi->Reset();
 
-        std::cout << "\nCalculating Mean Diff for centrality bin: " << cBin.first << "-" << cBin.second << "%\n";
-
         FillPtHistograms(datasets[1], cBin.first, cBin.second, h1D_PtMuPl, h1D_PtMuMi); //PbPb2023 dataset
         FillPtHistograms(datasets[2], cBin.first, cBin.second, h1D_PtMuPl, h1D_PtMuMi); //PbPb2024 dataset
         FillPtHistograms(datasets[3], cBin.first, cBin.second, h1D_PtMuPl, h1D_PtMuMi); //PbPb2025 dataset
         FillPtHistograms(datasets[4], cBin.first, cBin.second, h1D_PtMuPl, h1D_PtMuMi); //PbPb2026 dataset
 
+        //At this point the histograms have all candidates in each centrality bin.
+        PlotPtDistributionsWithRatio(cBin.first, cBin.second, h1D_PtMuPl, h1D_PtMuMi);
     }
 
 }
 
-
 //---Function definitions
-void func(const Dataset& dataset, float lowCent, float highCent){
+void PlotPtDistributionsWithRatio(float lowCent, float highCent, TH1D* h1D_PtMuPl, TH1D* h1D_PtMuMi){
+
+    //Create a canvas with two pads: top pad for the histograms and bottom pad for the ratio.
+    TCanvas* c1 = new TCanvas("c1", "Muon Yield Pt Distributions with Ratio", 800, 800);
+    c1->Divide(1, 2);
+
+    //Top pad for the histograms
+    c1->cd(1);
+    gPad->SetPad(0.0, 0.3, 1.0, 1.0); // Set the top pad to occupy the upper part of the canvas
+    gPad->SetLogy(); // Set logarithmic scale for y-axis
+
+    h1D_PtMuPl->SetLineColor(kBlue);
+    h1D_PtMuPl->SetLineWidth(2);
+    h1D_PtMuPl->Draw("HIST");
+
+    h1D_PtMuMi->SetLineColor(kRed);
+    h1D_PtMuMi->SetLineWidth(2);
+    h1D_PtMuMi->Draw("HIST SAME");
+
+    TLegend* legend = new TLegend(0.7, 0.7, 0.9, 0.9);
+    legend->AddEntry(h1D_PtMuPl, "Muon +", "l");
+    legend->AddEntry(h1D_PtMuMi, "Muon -", "l");
+    legend->Draw();
+}
+
+void FillPtHistograms(const Dataset& dataset, float lowCent, float highCent, TH1D* h1D_PtMuPl, TH1D* h1D_PtMuMi){
 
     // Load root file.
     std::string fullPath = dataset.basePath + dataset.filePattern;
