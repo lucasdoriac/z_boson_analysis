@@ -30,12 +30,15 @@ Ratio of N(\mu+)/N(\mu-) for each pT bin in bottom pad.
 
 
 //---Macro settings
-std::string plot_extension = ".pdf"; // ".png" for regular development and ".pdf" for final quality plots
-std::string whichDataset = "PbPb2023_2024_Data"; // "PbPb2023_2024_Data", "PbPb2023_Data", "PbPb2024_Data".
-std::string JointPbPb = "PbPb2023+2024"; //"PbPb2023+2024", "PbPb2023", "PbPb2024".
-std::string dataSamplesUsed = "PbPb 2023+2024, ppRef 2024 (5.36 TeV)"; //"PbPb 2023+2024, ppRef 2024 (5.36 TeV)", "PbPb 2023, ppRef 2024 (5.36 TeV)", "PbPb 2024, ppRef 2024 (5.36 TeV)".
-double delta = 1e-6; //Small value to avoid binning issues when projecting histograms.
+std::string BasePath = "/home/lucas/Documents/CMS/z_boson_analysis/"; //IFT
+//std::string BasePath = "/home/lucasdoriac/z_boson_analysis/data/"; //Home
 
+std::string plot_extension = ".pdf"; // ".png" for regular development and ".pdf" for final quality plots
+std::string whichDataset = "PbPb_Run3_Data"; // "PbPb2023_2024_Data", "PbPb2023_Data", "PbPb2024_Data".
+std::string JointPbPb = "PbPb2023-2026"; //"PbPb2023+2024", "PbPb2023", "PbPb2024".
+std::string dataSamplesUsed = "PbPb 2023-2026, ppRef 2024 (5.36 TeV)"; //"PbPb 2023+2024, ppRef 2024 (5.36 TeV)", "PbPb 2023, ppRef 2024 (5.36 TeV)", "PbPb 2024, ppRef 2024 (5.36 TeV)".
+double delta = 1e-6; //Small value to avoid binning issues when projecting histograms.
+double rho = 1.; //Correlation coefficient
 
 //Good Selection values
 const double maxZvtx = 15.0;
@@ -197,7 +200,7 @@ std::vector<std::pair<double, double>> CentralityBinsSet = {
 
 //---Function declarations;
 void FillPtHistograms(const Dataset& dataset, float lowCent, float highCent, TH1D* h1D_PtMuPl, TH1D* h1D_PtMuMi);
-void PlotPtDistributionsWithRatio(float lowCent, float highCent, TH1D* h1D_PtMuPl, TH1D* h1D_PtMuMi);
+void PlotPtDistributionsWithRatio(float lowCent, float highCent, TH1D* h_PtMuPl, TH1D* h_PtMuMi, CollisionSystem system);
 
 
 //---Main()
@@ -205,53 +208,217 @@ void MuonYieldPtWithRatio(){
 
     gROOT->SetBatch(kTRUE);
 
-
-    //One histogram for each distribution: dN/dpT(mu+) and dN/dpT(mu-)
-    TH1D* h1D_PtMuPl = new TH1D("h1D_PtMuPl", "Muon Plus pT; pT [GeV]; Entries", 200, 0., 200.);
-    TH1D* h1D_PtMuMi = new TH1D("h1D_PtMuMi", "Muon Minus pT; pT [GeV]; Entries", 200, 0., 200.);
+    //Plot the ppRef just for reference.
+    TH1D* h1D_PtMuPl_ppRef = new TH1D("h1D_PtMuPl_ppRef", "Muon Plus pT; pT [GeV]; Entries", 200, 0., 200.);
+    TH1D* h1D_PtMuMi_ppRef = new TH1D("h1D_PtMuMi_ppRef", "Muon Minus pT; pT [GeV]; Entries", 200, 0., 200.);
+    FillPtHistograms(datasets[0], 0., 100., h1D_PtMuPl_ppRef, h1D_PtMuMi_ppRef); //ppRef
+    //0. and 100. are not used for ppRef. [Check lines 519-521].
+    PlotPtDistributionsWithRatio(0., 100., h1D_PtMuPl_ppRef, h1D_PtMuMi_ppRef, CollisionSystem::ppRef);
 
     //For PbPb datasets loop over centrality bins. 
-    for(const auto& cBin : CentralitySet){
+    for(const auto& cBin : CentralityBinsSet){
 
-        //Clear histograms before each centrality call..
-        h1D_PtMuPl->Reset();
-        h1D_PtMuMi->Reset();
+        //One histogram for each distribution: dN/dpT(mu+) and dN/dpT(mu-)
+        TH1D* h1D_PtMuPl = new TH1D("h1D_PtMuPl", "Muon Plus pT; pT [GeV]; Entries", 200, 0., 200.);
+        TH1D* h1D_PtMuMi = new TH1D("h1D_PtMuMi", "Muon Minus pT; pT [GeV]; Entries", 200, 0., 200.);
 
         FillPtHistograms(datasets[1], cBin.first, cBin.second, h1D_PtMuPl, h1D_PtMuMi); //PbPb2023 dataset
         FillPtHistograms(datasets[2], cBin.first, cBin.second, h1D_PtMuPl, h1D_PtMuMi); //PbPb2024 dataset
         FillPtHistograms(datasets[3], cBin.first, cBin.second, h1D_PtMuPl, h1D_PtMuMi); //PbPb2025 dataset
         FillPtHistograms(datasets[4], cBin.first, cBin.second, h1D_PtMuPl, h1D_PtMuMi); //PbPb2026 dataset
 
+        //Check the n of dimuons for this centrality bin
+        std::cout << "\n> Number of dimuons in centrality bin " 
+        << cBin.first << "-" << cBin.second << "%: " << h1D_PtMuPl->GetEntries() << std::endl;
+
         //At this point the histograms have all candidates in each centrality bin.
-        PlotPtDistributionsWithRatio(cBin.first, cBin.second, h1D_PtMuPl, h1D_PtMuMi);
+        PlotPtDistributionsWithRatio(cBin.first, cBin.second, h1D_PtMuPl, h1D_PtMuMi, CollisionSystem::PbPb);
+
+        delete h1D_PtMuPl;
+        delete h1D_PtMuMi;
     }
 
 }
 
 //---Function definitions
-void PlotPtDistributionsWithRatio(float lowCent, float highCent, TH1D* h1D_PtMuPl, TH1D* h1D_PtMuMi){
+void PlotPtDistributionsWithRatio(float lowCent, float highCent, TH1D* h_PtMuPl, TH1D* h_PtMuMi, CollisionSystem system){
 
-    //Create a canvas with two pads: top pad for the histograms and bottom pad for the ratio.
-    TCanvas* c1 = new TCanvas("c1", "Muon Yield Pt Distributions with Ratio", 800, 800);
-    c1->Divide(1, 2);
+    TCanvas *c = new TCanvas("c", "Muon pT Distributions with Ratio", 800, 800);
+    TPad *pad1 = new TPad("pad1", "pad1", 0, 0.3, 1, 1.0);
+    TPad *pad2 = new TPad("pad2", "pad2", 0, 0.0, 1, 0.3);
+    basicPaddedCanvasFormatting(c, pad1, pad2);
+    pad1->Draw();
+    pad2->Draw();
 
-    //Top pad for the histograms
-    c1->cd(1);
-    gPad->SetPad(0.0, 0.3, 1.0, 1.0); // Set the top pad to occupy the upper part of the canvas
-    gPad->SetLogy(); // Set logarithmic scale for y-axis
+    //Top pad: pT distributions of mu+ and mu-.
+    pad1->cd();
+    basicPaddedHistFormatting(h_PtMuPl, false);//The false means its not the ratio.
+    basicPaddedHistFormatting(h_PtMuMi, false);
 
-    h1D_PtMuPl->SetLineColor(kBlue);
-    h1D_PtMuPl->SetLineWidth(2);
-    h1D_PtMuPl->Draw("HIST");
+    h_PtMuPl->SetFillStyle(0);
+    h_PtMuPl->SetLineWidth(1);
+    h_PtMuPl->SetLineColorAlpha(kRed-4, 0.8);
+    h_PtMuPl->SetMarkerStyle(20);
+    h_PtMuPl->SetMarkerSize(0.5);
+    h_PtMuPl->SetMarkerColorAlpha(kRed+1, 1.);
 
-    h1D_PtMuMi->SetLineColor(kRed);
-    h1D_PtMuMi->SetLineWidth(2);
-    h1D_PtMuMi->Draw("HIST SAME");
+    h_PtMuMi->SetFillStyle(0);
+    h_PtMuMi->SetLineWidth(1);
+    h_PtMuMi->SetLineColorAlpha(kBlue-4, 0.8);
+    h_PtMuMi->SetMarkerStyle(20);
+    h_PtMuMi->SetMarkerSize(0.5);
+    h_PtMuMi->SetMarkerColorAlpha(kBlue+1, 1.);
 
-    TLegend* legend = new TLegend(0.7, 0.7, 0.9, 0.9);
-    legend->AddEntry(h1D_PtMuPl, "Muon +", "l");
-    legend->AddEntry(h1D_PtMuMi, "Muon -", "l");
-    legend->Draw();
+    h_PtMuPl->GetXaxis()->SetTitle("p_{T} [GeV/c]");
+    h_PtMuPl->GetYaxis()->SetTitle("N of muons [GeV/c]^{-1}");
+    h_PtMuPl->GetXaxis()->SetRangeUser(18., 100.);
+    h_PtMuPl->GetYaxis()->SetTitleOffset(1.);
+
+    //h_PtMuPl->Draw("E1");
+    //h_PtMuMi->Draw("E1 SAME");
+
+    h_PtMuPl->Draw("HIST");
+    h_PtMuMi->Draw("HIST SAME");
+
+    
+    //Filling histogram. No border.
+    auto* fillPl = static_cast<TH1*>(h_PtMuPl->Clone("h_fill"));
+    fillPl->SetDirectory(nullptr);
+    fillPl->SetFillStyle(1001);
+    fillPl->SetFillColorAlpha(kRed-7, 0.55);
+    fillPl->SetLineColorAlpha(kRed-7, 0.0);
+    fillPl->Draw("HIST ][ SAME");
+    //fillPl->Draw("HIST ][");
+
+    auto* fillMi = static_cast<TH1*>(h_PtMuMi->Clone("h_fill"));
+    fillMi->SetDirectory(nullptr);
+    fillMi->SetFillStyle(1001);
+    fillMi->SetFillColorAlpha(kBlue-9, 0.5);
+    fillMi->SetLineColorAlpha(kBlue-9, 0.0);
+    fillMi->Draw("HIST ][ SAME");
+
+    //Calculate Z count and its error for the given centrality range.
+    double Zcount = 0.;
+    double ZcountError = 0.;
+    Zcount = h_PtMuPl->IntegralAndError(1, h_PtMuPl->GetNbinsX(), ZcountError);
+    //Add Z count and error on the plot
+    drawLatexText(Form("Z count: %.0f #pm %.0f", Zcount, ZcountError), 0.7, 0.35, 0.03);
+
+    //Selections and cuts
+    drawLatexText(Form("p_{T} > %.0f GeV, |#eta| < %.1f", ptCutValue, EtaCutValue), 0.7, 0.3, 0.03);
+    drawLatexText(Form("|y| < %.1f", RapidityCutValue), 0.7, 0.25, 0.03);
+    drawLatexText(Form("%.0f < M_{#mu#mu} < %.0f GeV", minZ_Mass, maxZ_Mass), 0.7, 0.2, 0.03);
+    if(system == CollisionSystem::PbPb){//Only draw centrality string for PbPb collision system.
+        drawLatexText(Form("Centrality: %.0f - %.0f %%", lowCent, highCent), 0.7, 0.15, 0.03);
+    }
+
+    TLegend* leg = new TLegend(0.75, 0.75, 0.97, 0.85);
+    basicLegendFormatting(leg);
+    leg->AddEntry(fillPl, "p_{T}(#mu^{+})", "f");
+    leg->AddEntry(fillMi, "p_{T}(#mu^{-})", "f");
+    leg->Draw();
+    pad1->Update();
+
+
+    //Bottom pad. Ratio of pT distributions of mu+ and mu-.
+    pad2->cd();
+
+    TH1D* histRatio = new TH1D("histRatio", "histRatio", h_PtMuPl->GetNbinsX(), h_PtMuPl->GetXaxis()->GetXmin(), h_PtMuPl->GetXaxis()->GetXmax());
+    //histRatio->Divide(h_PtMuPl, h_PtMuMi, 1.0, 1.0, "B");//Old histRatio definition. Binomial error propagation.
+
+    int ptfirstbin = histRatio->FindBin(ptCutValue + delta);
+    //Calculate the ratio and its error for each bin, taking into account the COMPLETE correlation between the two histograms.
+    for(int i = ptfirstbin; i <= 100; ++i){
+
+        double Nplus  = h_PtMuPl->GetBinContent(i);
+        double Nminus = h_PtMuMi->GetBinContent(i);
+
+        double sigmaPlus  = h_PtMuPl->GetBinError(i);
+        double sigmaMinus = h_PtMuMi->GetBinError(i);
+
+        if(Nminus <= 0.0 || Nplus <= 0.0){
+            std::cout << "Attention: Bin content in pT bin " << i << " is zero or negative. Nplus = " << Nplus << ", Nminus = " << Nminus
+            << ". Setting ratio (and error) to zero." << std::endl;
+            histRatio->SetBinContent(i, 0.);
+            histRatio->SetBinError(i, 0.);
+            continue;
+        }
+
+        double ratio = Nplus / Nminus;
+        //Statistical uncertainty assuming COMPLETE correlation between the two histograms. From Lara's paper.
+        double ratioError_completeCorr = ratio * std::sqrt(sigmaPlus*sigmaPlus/(Nplus*Nplus) + sigmaMinus*sigmaMinus/(Nminus*Nminus) - 2.*rho*sigmaPlus*sigmaMinus/(Nplus*Nminus));
+
+        //Check for NaN ratioError_completeCorr.
+        if(std::isnan(ratioError_completeCorr)){
+            std::cout << "ATTENTION: NaN error in pT bin " << i << std::endl;
+        }
+
+        histRatio->SetBinContent(i, ratio);
+        histRatio->SetBinError(i, ratioError_completeCorr);
+    }
+
+    basicPaddedHistFormatting(histRatio, true); //true=is ratio histogram.
+    
+    histRatio->SetMarkerStyle(24);
+    histRatio->SetMarkerSize(0.8);
+    histRatio->SetMarkerColor(kBlack);
+    histRatio->SetLineColor(kBlack);
+    histRatio->SetLineWidth(1);
+
+    histRatio->GetYaxis()->SetTitle("Ratio");
+    histRatio->GetXaxis()->SetTitle("p_{T} [GeV]");
+    histRatio->GetXaxis()->SetRangeUser(18., 100.);
+    histRatio->GetYaxis()->SetRangeUser(0., 2.);
+
+    histRatio->Draw("E1");
+
+    //A horizontal line to represent the null hypothesis of no difference between mu+ and mu- pT distributions.
+    TLine *line = new TLine(18., 1.0, 100., 1.0);
+    line->SetLineColor(kMagenta+2);
+    line->SetLineStyle(2);
+    line->SetLineWidth(1);
+    line->Draw("SAME");
+
+    TLegend *leg2 = new TLegend(0.2, 0.78, 0.32, 0.96);
+    basicLegendFormatting(leg2);
+    leg2->SetTextSize(0.058);
+    leg2->AddEntry(line, "R = 1 (null hypothesis)", "l");
+    leg2->Draw();
+    pad2->Update();
+
+    //Perform a Chi2 test to see if the double ratio is compatible with 1.
+    //auto [ndf, chi2, pValue] = MakeChi2Test(histRatio);
+
+    //Back to the canvas.
+    c->cd();
+    drawLatexText("#bf{CMS}", 0.11, 0.95, 0.04);
+    drawLatexText("#it{Internal}", 0.2, 0.95, 0.03);
+    if(system == CollisionSystem::PbPb){//Only draw data samples string for PbPb collision system.
+        drawLatexText(dataSamplesUsed.c_str(), 0.5, 0.95, 0.026);
+    }
+    else if(system == CollisionSystem::ppRef){//Only draw data samples string for ppRef collision system.
+        drawLatexText("pp Reference sample (5.36 TeV)", 0.6, 0.95, 0.026);
+    }
+    //drawLatexText(Form("#chi^{2}/ndf = %.2f/%d", chi2, ndf), 0.67, 0.72, 0.022);
+    //drawLatexText(Form("p-value = %.2f", pValue), 0.67, 0.69, 0.022);
+
+    //Save
+    std::string systemString;
+    if (system == CollisionSystem::PbPb) {
+        systemString = "_PbPb";
+    }
+    else if (system == CollisionSystem::ppRef) {
+        systemString = "_ppRef";
+    }
+    std::string centString = Form("_Cent%.0f-%.0f", lowCent, highCent);
+    std::string output = "MuonPtMuPlMuMiHistWithSingleRatio" + systemString + centString + plot_extension;
+    c->Update();
+    c->SaveAs(output.c_str());
+
+    delete histRatio;
+    delete line;
+    delete c;
+
 }
 
 void FillPtHistograms(const Dataset& dataset, float lowCent, float highCent, TH1D* h1D_PtMuPl, TH1D* h1D_PtMuMi){
@@ -435,8 +602,6 @@ void FillPtHistograms(const Dataset& dataset, float lowCent, float highCent, TH1
 
     }//Exiting event-by-event loop.
 
-    //Check the n of dimuons for this centrality bin
-    std::cout << "\n> Number of dimuons in centrality bin " << lowCent << "-" << highCent << "%: " << h1D_PtMuPl->GetEntries() << std::endl;
 
     delete chain;
 }
