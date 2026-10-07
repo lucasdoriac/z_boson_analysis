@@ -497,7 +497,7 @@ void CalculatePtRelativeDiff(const Dataset& dataset, double lowCent, double high
     TChain *chain = new TChain(dataset.treeName.c_str());
     chain->Add(fullPath.c_str());
 
-    std::cout << "> Number of files = " << chain->GetListOfFiles()->GetEntries() << "\n" << std::endl;
+    std::cout << "> Number of files on TChain = " << chain->GetListOfFiles()->GetEntries() << "\n" << std::endl;
     std::cout << "> Opening files " << fullPath << "\n" << std::endl;
     std::cout << "> Running function " << __func__ << " on " << dataset.name << "\n" << std::endl;
     
