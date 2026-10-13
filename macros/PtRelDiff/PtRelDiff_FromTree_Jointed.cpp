@@ -734,7 +734,6 @@ std::tuple<Long64_t, double, double, double, double, double> GetStatistics(const
     }
     mean = mean/static_cast<double>(n);
 
-
     double M2 = 0.0;
     double M3 = 0.0;
     for(double x : values){

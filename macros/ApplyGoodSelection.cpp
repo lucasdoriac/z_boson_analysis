@@ -680,7 +680,9 @@ void CombinePbPbYears(TFile* outputFile){
         "h2D_muonPtRelDiff_zPt",
         "h2D_muonPtRelDiff_zRapidity",
         "h2D_zPt_zRapidity",
-        "h2D_PtMuPl_PtMuMi"
+        "h2D_PtMuPl_PtMuMi",
+
+        "h1D_eventsVsCentrality"
     };
 
     //Create a new directory for the combined data.

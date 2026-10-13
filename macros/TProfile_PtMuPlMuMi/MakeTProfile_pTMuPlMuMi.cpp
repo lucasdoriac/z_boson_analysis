@@ -28,9 +28,10 @@
 
 //---Macro settings
 std::string plot_extension = ".pdf"; // ".png" for regular development and ".pdf" for final quality plots
-std::string whichDataset = "PbPb2023_2024_Data"; // "PbPb2023_2024_Data", "PbPb2023_Data", "PbPb2024_Data". 
-std::string JointPbPb = "PbPb2023+2024"; //"PbPb2023+2024", "PbPb2023", "PbPb2024".
-std::string dataSamplesUsed = "PbPb 2023+2024, ppRef 2024 (5.36 TeV)"; //"PbPb 2023+2024, ppRef 2024 (5.36 TeV)", "PbPb 2023, ppRef 2024 (5.36 TeV)", "PbPb 2024, ppRef 2024 (5.36 TeV)".
+std::string whichDataset = "PbPb_Run3_Data"; // "PbPb2023_2024_Data", "PbPb2023_Data", "PbPb2024_Data". 
+std::string JointPbPb = "PbPb2023-2026"; //"PbPb2023+2024", "PbPb2023", "PbPb2024".
+std::string dataSamplesUsed = "PbPb 2023-2026, ppRef 2024 (5.36 TeV)"; //"PbPb 2023+2024, ppRef 2024 (5.36 TeV)", "PbPb 2023, ppRef 2024 (5.36 TeV)", "PbPb 2024, ppRef 2024 (5.36 TeV)".
+
 double delta = 1e-6; //Small value to avoid binning issues when projecting histograms.
 double ptMin = 20.; //Minimum pT value for the histograms.
 
@@ -38,22 +39,23 @@ double ptMin = 20.; //Minimum pT value for the histograms.
 // ##############################################################################
 // ##############################################################################
 
-/*std::vector<std::pair<double, double>> CentralityBinsSet = {
+std::vector<std::pair<double, double>> CentralityBinsSet = {
     {0., 10.},
     {10., 20.},
     {20., 30.},
     {30., 100.},
     {0., 100.}
-};*/
+};
+
 
 //Second proposed set of centrality bins for PbPb2024 data.
-std::vector<std::pair<double, double>> CentralityBinsSet = {
+/*std::vector<std::pair<double, double>> CentralityBinsSet = {
     {0., 10.},
     {10., 30.},
     {30., 50.},
     {50., 100.},
     {0., 100.}
-};
+};*/
 
 
 void MakeTProfile_PbPb(TFile* inputFile, double lowCent, double highCent);
@@ -103,12 +105,28 @@ void MakeTProfile_PbPb(TFile* inputFile, double lowCent, double highCent){
     //Now we can create a TProfile to get the mean of PtMuMi for each bin of PtMuPl. 
     TProfile* h_PbPb_TProfile = h2D_PtMuPl_PtMuMi->ProfileX(("h_PbPb_TProfile_" + centString).c_str());
 
+
+    const Int_t nColors = 255;
+
+    Double_t stops[] = {0.00, 0.50, 1.00};
+    Double_t red[]   = {0.65, 0.20, 0.03};
+    Double_t green[] = {0.82, 0.50, 0.12};
+    Double_t blue[]  = {0.95, 0.78, 0.35};
+
+    const Int_t firstColor = TColor::CreateGradientColorTable(
+        3, stops, red, green, blue, nColors
+    );
+
+    Int_t palette[nColors];
+    for (Int_t i = 0; i < nColors; ++i)
+        palette[i] = firstColor + i;
+
+
     TCanvas* c = new TCanvas(("c_PbPb_" + centString).c_str(), ("c_PbPb_" + centString).c_str(), 800, 600);
     basicCanvasFormatting(c);
     basicHistFormatting(h2D_PtMuPl_PtMuMi);
     c->SetLeftMargin(0.1);
     c->SetRightMargin(0.14);
-
 
     //TH2 formatting
     h2D_PtMuPl_PtMuMi->GetXaxis()->SetTitle("p_{T}^{#mu^{+}} [GeV]");
@@ -123,39 +141,36 @@ void MakeTProfile_PbPb(TFile* inputFile, double lowCent, double highCent){
     h2D_PtMuPl_PtMuMi->GetZaxis()->SetTitleSize(0.033);
 
     //TProfile formatting
-    h_PbPb_TProfile->SetLineColorAlpha(kGray+3, 0.8);
-    h_PbPb_TProfile->SetMarkerColorAlpha(kBlack, 1.);
+    h_PbPb_TProfile->SetLineColor(kBlack);
+    h_PbPb_TProfile->SetMarkerColor(kBlack);
     h_PbPb_TProfile->SetMarkerStyle(20);
-    h_PbPb_TProfile->SetMarkerSize(0.6);
-    h_PbPb_TProfile->SetLineWidth(1);
+    h_PbPb_TProfile->SetMarkerSize(0.55);
+    h_PbPb_TProfile->SetLineWidth(2);
 
     //Range
     h2D_PtMuPl_PtMuMi->GetXaxis()->SetRangeUser(ptMin, 100.);
     h2D_PtMuPl_PtMuMi->GetYaxis()->SetRangeUser(ptMin, 100.);
     h_PbPb_TProfile->GetXaxis()->SetRangeUser(ptMin, 100.);
     h_PbPb_TProfile->GetYaxis()->SetRangeUser(ptMin, 100.);
-    h2D_PtMuPl_PtMuMi->SetContour(100);
+    gStyle->SetPalette(nColors, palette);
+    h2D_PtMuPl_PtMuMi->SetContour(nColors);
 
     //Draw
     h2D_PtMuPl_PtMuMi->Draw("COLZ");
-    h_PbPb_TProfile->Draw("E1 SAME");
 
     //Reference y=x diagonal line
-    TLine* diagonal = new TLine(ptMin, ptMin,  h2D_PtMuPl_PtMuMi->GetXaxis()->GetXmax(), h2D_PtMuPl_PtMuMi->GetXaxis()->GetXmax());
+    TLine* diagonal = new TLine(ptMin, ptMin,  100., 100.);
 
     diagonal->SetLineStyle(7);
     diagonal->SetLineWidth(2);
     diagonal->SetLineColor(kRed);
     diagonal->Draw("SAME");
+    h_PbPb_TProfile->Draw("E1 SAME");
 
     drawLatexText("#bf{CMS}", 0.12, 0.93, 0.04);
-    drawLatexText("#it{Work in Progress}", 0.19, 0.93, 0.03);
+    drawLatexText("#it{Internal}", 0.19, 0.93, 0.03);
     drawLatexText(dataSamplesUsed.c_str(), 0.48, 0.93, 0.03);
     
-    //Plot specifications
-    drawLatexText("p_{T}^{#mu} > 20 GeV, |#eta^{#mu}| < 2.4", 0.6, 0.87, 0.025);
-    drawLatexText("60 < M_{#mu#mu} < 120 GeV", 0.6, 0.82, 0.025);
-
 
     c->Update();
     std::string outputFileName = "TProfile_PtMuPl_PtMuMi_Cent_" + centString + plot_extension;

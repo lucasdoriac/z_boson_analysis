@@ -154,4 +154,15 @@ latex.SetTextAlign(11);      // Left-top aligned.
 latex.DrawLatex(x, y, latexText);
 }
 
+void drawLatexVerticalText(TString latexText, double x, double y, double TextSize){
+//Used for example to draw the labels for vertical lines in the events_vs_centrality plot.
+TLatex latex;
+latex.SetNDC();              // For normalized coordinates
+latex.SetTextSize(TextSize);
+latex.SetTextFont(42);       // Helvetica
+latex.SetTextAlign(11);      // Left-top aligned.
+latex.SetTextAngle(90);
+latex.DrawLatex(x, y, latexText);
+}
+
 #endif //BASICFORMATTING_H

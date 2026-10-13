@@ -722,6 +722,7 @@ void GetMeanAndPeakDifference(const Dataset& dataset, TH1D* h_MuPl, TH1D* h_MuMi
     //Peak and "error" (bin width)
     double MuMi_peak = h_MuMi->GetBinCenter(h_MuMi->GetMaximumBin());
     double MuMi_peakError = h_MuMi->GetBinWidth(h_MuMi->GetMaximumBin());
+
     
     //Calculate mean difference and error
     double meanDifference = MuPl_mean - MuMi_mean;
